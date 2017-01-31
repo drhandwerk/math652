@@ -9,25 +9,26 @@ type Uniformmesh2D
   verticies::Array{Vertex}
   triangles::Array{Triangle}
 
-  function Uniformmesh2D(m,n)
-    this = new(m,n,(m+1)*(n+1))
-    generateVertices(this.mesh)
+  function Uniformmesh2D(m::Int64,n::Int64)
+    this = new(m,n,(m+1)*(n+1),Array{Vertex}((m+1)*(n+1)),Array{Triangle}(m*n*2))
+    generateVertices(this)
+    generateTriangles(this)
     return this
   end
 end
 
 # Generate array of verticies numbered from bottom left. Increaes up then right.
 function generateVertices(mesh::Uniformmesh2D)
-  println(mesh.n)
-  mesh.verticies = Array{Triangle}(mesh.m*mesh.n)
-
-  for i = 1:mesh.n+1
-    for j = 0:mesh.m
-      mesh.verticies[j + (i-1)*(mesh.m+1)] = Vertex(0.,0.)
+  width::Float64 = 1.0/mesh.m
+  height::Float64 = 1.0/mesh.n
+  for i = 1:mesh.m+1
+    for j = 1:mesh.n+1
+      mesh.verticies[j + (i-1)*(mesh.n+1)] = Vertex(width*(i-1),height*(j-1))
+      println(i,j)
     end
   end
 end
 # Generate array of triangles numbered from bottom left. Increases up then right.
-function generateTriangles()
+function generateTriangles(mesh::Uniformmesh2D)
 
 end

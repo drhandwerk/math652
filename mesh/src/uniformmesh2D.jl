@@ -1,4 +1,7 @@
 # Build uniform triangluar mesh over unit square
+
+#TODO use modules
+
 include("vertex.jl")
 include("triangle.jl")
 
@@ -31,7 +34,8 @@ end
 function generateTriangles(mesh::Uniformmesh2D)
   for i = 1:mesh.m
     for j = 1:2*mesh.n
-        mesh.triangles[j + (i-1)*mesh.n*2] = Triangle(mesh.verticies[1],mesh.verticies[4],mesh.verticies[5])
+      #TODO fix which verticies get used for triangles
+      mesh.triangles[j + (i-1)*mesh.n*2] = Triangle(mesh.verticies[1],mesh.verticies[4],mesh.verticies[5])
     end
   end
 end

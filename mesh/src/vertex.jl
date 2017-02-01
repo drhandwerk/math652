@@ -1,5 +1,14 @@
-type Vertex
+type Vertex <: AbstractArray{Float64, 1}
   x::Float64
   y::Float64
-  Vertex(x,y) = new(x,y)
+end
+Base.size(V::Vertex) = (2,)
+function Base.getindex(V::Vertex, i::Int)
+  if i == 1
+    return V.x
+  elseif i == 2
+    return V.y
+  else
+    BoundsError(V, i)
+  end
 end

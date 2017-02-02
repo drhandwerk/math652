@@ -4,7 +4,12 @@
 
 include("Vertex.jl")
 include("Triangle.jl")
+"""
+  UniformTriangleMesh(m,n)
 
+Creates a uniform triangle mesh of the unit square with 'm' partitions in the
+x direction and 'n' partitions in the y direction.
+"""
 type UniformTriangleMesh
   m::Int64 # Number of partitions in x-dir
   n::Int64 # Number of partitions in y-dir
@@ -20,7 +25,13 @@ type UniformTriangleMesh
   end
 end
 
-# Generate array of verticies numbered from bottom left. Increaes up then right.
+"""
+  generateVertices!(mesh)
+
+Creates all of the verticies for the mesh and changes in place. Numbering starts
+at the bottom left, and goes up each column before going to the bottom of the next
+column.
+"""
 function generateVertices!(mesh::UniformTriangleMesh)
   width::Float64 = 1.0/mesh.m
   height::Float64 = 1.0/mesh.n
@@ -30,7 +41,13 @@ function generateVertices!(mesh::UniformTriangleMesh)
     end
   end
 end
-# Generate array of triangles numbered from bottom left. Increases up then right.
+
+"""
+  generateTriangles!(mesh)
+
+Creates all of the triangles for the mesh overwriting the Constructor created
+empty array in place. Numbering starts at bottom left, proceeds up, then right.
+"""
 function generateTriangles!(mesh::UniformTriangleMesh)
   for i = 1:mesh.m
     for j = 1:2*mesh.n

@@ -5,7 +5,7 @@ include("Vertex.jl")
 
 Creates an edge between two vertices 'p1' and 'p2'.
 """
-type Edge <: AbstractArray{Float64, 1}
+type Edge <: AbstractArray{AbstractArray{Float64, 1}, 1}
   p1::Vertex
   p2::Vertex
 

@@ -5,7 +5,7 @@ include("Vertex.jl")
 
 Creates a Triangle with vertices 'p1', 'p2', 'p3'.
 """
-type Triangle <: AbstractArray{Float64, 1}
+type Triangle <: AbstractArray{AbstractArray{Float64, 1}, 1}
   p1::Vertex
   p2::Vertex
   p3::Vertex

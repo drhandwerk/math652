@@ -2,17 +2,17 @@
 
 #TODO use modules
 
-include("vertex.jl")
-include("triangle.jl")
+include("Vertex.jl")
+include("Triangle.jl")
 
-type Uniformmesh2D
+type UniformTriangleMesh
   m::Int64 # Number of partitions in x-dir
   n::Int64 # Number of partitions in y-dir
   num_vertices::Int64
   verticies::Array{Vertex}
   triangles::Array{Triangle}
 
-  function Uniformmesh2D(m::Int64,n::Int64)
+  function UniformTriangleMesh(m::Int64,n::Int64)
     mesh = new(m,n,(m+1)*(n+1),Array{Vertex}((m+1)*(n+1)),Array{Triangle}(m*n*2))
     generateVertices!(mesh)
     generateTriangles!(mesh)
@@ -21,7 +21,7 @@ type Uniformmesh2D
 end
 
 # Generate array of verticies numbered from bottom left. Increaes up then right.
-function generateVertices!(mesh::Uniformmesh2D)
+function generateVertices!(mesh::UniformTriangleMesh)
   width::Float64 = 1.0/mesh.m
   height::Float64 = 1.0/mesh.n
   for i = 1:mesh.m+1
@@ -31,7 +31,7 @@ function generateVertices!(mesh::Uniformmesh2D)
   end
 end
 # Generate array of triangles numbered from bottom left. Increases up then right.
-function generateTriangles!(mesh::Uniformmesh2D)
+function generateTriangles!(mesh::UniformTriangleMesh)
   for i = 1:mesh.m
     for j = 1:2*mesh.n
       #TODO fix which verticies get used for triangles

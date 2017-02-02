@@ -1,10 +1,9 @@
-include("vertex.jl")
+include("Vertex.jl")
 
 type Triangle <: AbstractArray{Float64, 1}
   p1::Vertex
   p2::Vertex
   p3::Vertex
-  #TODO order the points counter clockwise. Maybe have a sort function for Vertex
   function Triangle(p1::Vertex,p2::Vertex,p3::Vertex)
     triangle = new(p1,p2,p3)
     sort!(triangle)

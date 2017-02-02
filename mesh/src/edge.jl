@@ -1,11 +1,11 @@
-include "Vertex.jl"
+include("Vertex.jl")
 
 """
   Edge(p1, p2)
 
 Creates an edge between two vertices 'p1' and 'p2'.
 """
-type Edge(p1::Vertex, p2::Vertex) <: AbstractArray{Float64, 1}
+type Edge <: AbstractArray{Float64, 1}
   p1::Vertex
   p2::Vertex
 
@@ -20,4 +20,4 @@ function Base.getindex(E::Edge, i::Int)
   else
     BoundsError(E, i)
   end
-end)
+end

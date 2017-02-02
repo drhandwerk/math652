@@ -49,18 +49,20 @@ Creates all of the triangles for the mesh overwriting the Constructor created
 empty array in place. Numbering starts at bottom left, proceeds up, then right.
 """
 function generateTriangles!(mesh::UniformTriangleMesh)
+  count::Int32 = 1
   for i = 1:mesh.m
-    for j = 1:2*mesh.n
-      #TODO fix which vertices get used for triangles
-      if j % 2 == 1
-        mesh.triangles[j + (i-1)*mesh.n*2] = Triangle(mesh.vertices[i],
-                                                      mesh.vertices[i+(mesh.n+1)],
-                                                      mesh.vertices[i+(mesh.n+2)])
-      else
-        mesh.triangles[j + (i-1)*mesh.n*2] = Triangle(mesh.vertices[i],
-                                                      mesh.vertices[i+(mesh.n+2)],
-                                                      mesh.vertices[i+1])
-      end
+    for j = 1:mesh.n
+      base::Int64 = j + (mesh.n + 1)*(i-1)
+      println(base)
+      mesh.triangles[count] = Triangle(mesh.vertices[base],
+                                       mesh.vertices[base + (mesh.n + 1)],
+                                       mesh.vertices[base + (mesh.n + 2)])
+      count += 1
+      mesh.triangles[count] = Triangle(mesh.vertices[base],
+                                       mesh.vertices[base + 1],
+                                       mesh.vertices[base + (mesh.n + 2)])
+      count += 1
+
     end
   end
 end

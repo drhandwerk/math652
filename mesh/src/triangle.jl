@@ -6,7 +6,7 @@ type Triangle <: AbstractArray{Float64, 1}
   p3::Vertex
   function Triangle(p1::Vertex,p2::Vertex,p3::Vertex)
     triangle = new(p1,p2,p3)
-    sort!(triangle)
+    #sort!(triangle)
     return triangle
   end
 end

@@ -1,12 +1,17 @@
 include("Vertex.jl")
 
+"""
+  Triangle(p1, p2, p3)
+
+Creates a Triangle with vertices 'p1', 'p2', 'p3'.
+"""
 type Triangle <: AbstractArray{Float64, 1}
   p1::Vertex
   p2::Vertex
   p3::Vertex
   function Triangle(p1::Vertex,p2::Vertex,p3::Vertex)
     triangle = new(p1,p2,p3)
-    #sort!(triangle)
+    #sort!(triangle) #TODO if not using sort! can put on one line
     return triangle
   end
 end

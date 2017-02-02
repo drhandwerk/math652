@@ -2,7 +2,7 @@
   Vertex(x, y)
 
 Creates a two-dimensional vertex point ('x','y'). Inherits AbstractArray for all the built in Vector
-functions. Entries are floats. 
+functions. Entries are floats.
 
 """
 type Vertex <: AbstractArray{Float64, 1}

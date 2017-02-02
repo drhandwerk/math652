@@ -14,7 +14,7 @@ type UniformTriangleMesh
   m::Int64 # Number of partitions in x-dir
   n::Int64 # Number of partitions in y-dir
   num_vertices::Int64
-  verticies::Array{Vertex}
+  vertices::Array{Vertex}
   triangles::Array{Triangle}
 
   function UniformTriangleMesh(m::Int64,n::Int64)
@@ -28,7 +28,7 @@ end
 """
   generateVertices!(mesh)
 
-Creates all of the verticies for the mesh and changes in place. Numbering starts
+Creates all of the vertices for the mesh and changes in place. Numbering starts
 at the bottom left, and goes up each column before going to the bottom of the next
 column.
 """
@@ -37,7 +37,7 @@ function generateVertices!(mesh::UniformTriangleMesh)
   height::Float64 = 1.0/mesh.n
   for i = 1:mesh.m+1
     for j = 1:mesh.n+1
-      mesh.verticies[j + (i-1)*(mesh.n+1)] = Vertex(width*(i-1),height*(j-1))
+      mesh.vertices[j + (i-1)*(mesh.n+1)] = Vertex(width*(i-1),height*(j-1))
     end
   end
 end
@@ -51,8 +51,16 @@ empty array in place. Numbering starts at bottom left, proceeds up, then right.
 function generateTriangles!(mesh::UniformTriangleMesh)
   for i = 1:mesh.m
     for j = 1:2*mesh.n
-      #TODO fix which verticies get used for triangles
-      mesh.triangles[j + (i-1)*mesh.n*2] = Triangle(mesh.verticies[1],mesh.verticies[4],mesh.verticies[5])
+      #TODO fix which vertices get used for triangles
+      if j % 2 == 1
+        mesh.triangles[j + (i-1)*mesh.n*2] = Triangle(mesh.vertices[i],
+                                                      mesh.vertices[i+(mesh.n+1)],
+                                                      mesh.vertices[i+(mesh.n+2)])
+      else
+        mesh.triangles[j + (i-1)*mesh.n*2] = Triangle(mesh.vertices[i],
+                                                      mesh.vertices[i+(mesh.n+2)],
+                                                      mesh.vertices[i+1])
+      end
     end
   end
 end

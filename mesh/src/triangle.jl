@@ -28,7 +28,9 @@ end
 
 Arranges the verticies of the triangle in a counter-clockwise order. First find
 the center of the triangle and then compute the angle between the center and all
-the other verticies. Arrange in descending order.
+the other verticies. Arrange in increasing order.
+
+Numbering starts with the bottom left vertex.
 """
 function Base.sort!(T::Triangle)
   temp_triangle::Triangle = deepcopy(T)

@@ -53,14 +53,13 @@ function generateTriangles!(mesh::UniformTriangleMesh)
   for i = 1:mesh.m
     for j = 1:mesh.n
       base::Int64 = j + (mesh.n + 1)*(i-1)
-      println(base)
       mesh.triangles[count] = Triangle(mesh.vertices[base],
                                        mesh.vertices[base + (mesh.n + 1)],
                                        mesh.vertices[base + (mesh.n + 2)])
       count += 1
       mesh.triangles[count] = Triangle(mesh.vertices[base],
-                                       mesh.vertices[base + 1],
-                                       mesh.vertices[base + (mesh.n + 2)])
+                                       mesh.vertices[base + (mesh.n + 2)],
+                                       mesh.vertices[base + 1])
       count += 1
 
     end

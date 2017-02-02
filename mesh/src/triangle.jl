@@ -20,9 +20,10 @@ function Base.getindex(T::Triangle, i::Int)
   elseif i == 3
     return T.p3
   else
-    BoundsError(V, i)
+    BoundsError(T, i)
   end
 end
+
 """
   sort!(T)
 

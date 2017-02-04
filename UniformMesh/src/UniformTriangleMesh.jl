@@ -1,6 +1,8 @@
-# Build uniform triangluar mesh over unit square
 
-#TODO use modules
+
+module UniformMesh
+
+export UniformTriangleMesh
 """
   UniformTriangleMesh(m,n)
 
@@ -12,7 +14,7 @@ type UniformTriangleMesh
   n::Int64 # Number of partitions in y-dir
   num_vertices::Int64
   vertices::Array{Float64, 2}
-  triangles::Array{Array{Float64, 2}}
+  triangles::Array{Float64, 2}
   edges::Array{Array{Float64, 2}}
 
   function UniformTriangleMesh(m::Int64,n::Int64)
@@ -20,7 +22,7 @@ type UniformTriangleMesh
                n,
                (m+1)*(n+1),
                Array{Float64, 2}((m+1)*(n+1), 2),
-               Array{Array{Float64, 2}}(m*n*2),
+               Array{Float64, 2}(m*n*2, 3),
                Array{Array{Float64, 2}}(3*m*n + n + m))
     generateVertices!(mesh)
     #generateTriangles!(mesh)
@@ -41,8 +43,8 @@ function generateVertices!(mesh::UniformTriangleMesh)
   height::Float64 = 1.0/mesh.n
   for i = 1:mesh.m+1
     for j = 1:mesh.n+1
-      mesh.vertices[j + (i-1)*(mesh.n+1), 1] = width*(i-1)
-      mesh.vertices[j + (i-1)*(mesh.n+1), 2]=  height*(j-1)
+      mesh.vertices[j + (i-1)*(mesh.n+1), 1] = width*(i-1)  # x component
+      mesh.vertices[j + (i-1)*(mesh.n+1), 2]=  height*(j-1) # y component
     end
   end
 end
@@ -58,15 +60,14 @@ function generateTriangles!(mesh::UniformTriangleMesh)
   for i = 1:mesh.m
     for j = 1:mesh.n
       base::Int64 = j + (mesh.n + 1)*(i-1)
-      mesh.triangles[count] = [mesh.vertices[base]
-                               mesh.vertices[base + (mesh.n + 1)]
-                               mesh.vertices[base + (mesh.n + 2)]]
+      mesh.triangles[count, 1] = mesh.vertices[base]
+      mesh.triangles[count, 2] = mesh.vertices[base + (mesh.n + 1)]
+      mesh.triangles[count, 3] = mesh.vertices[base + (mesh.n + 2)]
       count += 1
-      mesh.triangles[count] = [mesh.vertices[base]
-                               mesh.vertices[base + (mesh.n + 2)]
-                               mesh.vertices[base + 1]]
+      mesh.triangles[count, 1] = mesh.vertices[base]
+      mesh.triangles[count, 2] = mesh.vertices[base + (mesh.n + 2)]
+      mesh.triangles[count, 3] = mesh.vertices[base + 1]
       count += 1
-
     end
   end
 end
@@ -104,4 +105,5 @@ function generateEdges!(mesh::UniformTriangleMesh)
       count += 1
     end
   end
+end
 end

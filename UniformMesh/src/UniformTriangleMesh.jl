@@ -1,5 +1,4 @@
 
-
 module UniformMesh
 
 export UniformTriangleMesh
@@ -15,18 +14,18 @@ type UniformTriangleMesh
   num_vertices::Int64
   vertices::Array{Float64, 2}
   triangles::Array{Float64, 2}
-  edges::Array{Array{Float64, 2}}
+  edges::Array{Float64, 2}
 
   function UniformTriangleMesh(m::Int64,n::Int64)
     mesh = new(m,
                n,
                (m+1)*(n+1),
                Array{Float64, 2}((m+1)*(n+1), 2),
-               Array{Float64, 2}(m*n*2, 3),
-               Array{Array{Float64, 2}}(3*m*n + n + m))
+               Array{Float64, 2}(m*n*2, 6),
+               Array{Float64, 2}(3*m*n + n + m, 4))
     generateVertices!(mesh)
-    #generateTriangles!(mesh)
-    #generateEdges!(mesh)
+    generateTriangles!(mesh)
+    generateEdges!(mesh)
     return mesh
   end
 end
@@ -60,13 +59,13 @@ function generateTriangles!(mesh::UniformTriangleMesh)
   for i = 1:mesh.m
     for j = 1:mesh.n
       base::Int64 = j + (mesh.n + 1)*(i-1)
-      mesh.triangles[count, 1] = mesh.vertices[base]
-      mesh.triangles[count, 2] = mesh.vertices[base + (mesh.n + 1)]
-      mesh.triangles[count, 3] = mesh.vertices[base + (mesh.n + 2)]
+      mesh.triangles[count, 1:2] = mesh.vertices[base, :]
+      mesh.triangles[count, 3:4] = mesh.vertices[base + (mesh.n + 1), :]
+      mesh.triangles[count, 5:6] = mesh.vertices[base + (mesh.n + 2), :]
       count += 1
-      mesh.triangles[count, 1] = mesh.vertices[base]
-      mesh.triangles[count, 2] = mesh.vertices[base + (mesh.n + 2)]
-      mesh.triangles[count, 3] = mesh.vertices[base + 1]
+      mesh.triangles[count, 1:2] = mesh.vertices[base, :]
+      mesh.triangles[count, 3:4] = mesh.vertices[base + (mesh.n + 2), :]
+      mesh.triangles[count, 5:6] = mesh.vertices[base + 1, :]
       count += 1
     end
   end
@@ -84,24 +83,24 @@ function generateEdges!(mesh::UniformTriangleMesh)
   # Vertical Edges
   for j = 1:mesh.m+1
     for i = 1:mesh.n
-      mesh.edges[count] = [mesh.vertices[i + (mesh.n + 1)*(j - 1)]
-                           mesh.vertices[(i + 1) + (mesh.n + 1)*(j - 1)]]
+      mesh.edges[count, 1:2] = mesh.vertices[i + (mesh.n + 1)*(j - 1), :]
+      mesh.edges[count, 3:4] = mesh.vertices[(i + 1) + (mesh.n + 1)*(j - 1), :]
       count += 1
     end
   end
   # Horizontal Edges
   for j = 1:mesh.m
     for i = 1:mesh.n+1
-      mesh.edges[count] = [mesh.vertices[i + (mesh.n + 1)*(j - 1)]
-                           mesh.vertices[(i + mesh.n + 1) + (mesh.n + 1)*(j - 1)]]
+      mesh.edges[count, 1:2] = mesh.vertices[i + (mesh.n + 1)*(j - 1), :]
+      mesh.edges[count, 3:4] = mesh.vertices[(i + mesh.n + 1) + (mesh.n + 1)*(j - 1), :]
       count += 1
     end
   end
   # Diagonal Edges
   for j = 1:mesh.m
     for i = 1:mesh.n
-      mesh.edges[count] = [mesh.vertices[i + (mesh.n + 1)*(j - 1)]
-                           mesh.vertices[(i + mesh.n + 2) + (mesh.n + 1)*(j - 1)]]
+      mesh.edges[count, 1:2] = mesh.vertices[i + (mesh.n + 1)*(j - 1), :]
+      mesh.edges[count, 3:4] = mesh.vertices[(i + mesh.n + 2) + (mesh.n + 1)*(j - 1), :]
       count += 1
     end
   end

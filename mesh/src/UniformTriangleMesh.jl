@@ -11,7 +11,7 @@ type UniformTriangleMesh
   m::Int64 # Number of partitions in x-dir
   n::Int64 # Number of partitions in y-dir
   num_vertices::Int64
-  vertices::Array{Array{Float64, 2}}
+  vertices::Array{Float64, 2}
   triangles::Array{Array{Float64, 2}}
   edges::Array{Array{Float64, 2}}
 
@@ -19,12 +19,12 @@ type UniformTriangleMesh
     mesh = new(m,
                n,
                (m+1)*(n+1),
-               Array{Array{Float64, 2}}((m+1)*(n+1)),
+               Array{Float64, 2}((m+1)*(n+1), 2),
                Array{Array{Float64, 2}}(m*n*2),
                Array{Array{Float64, 2}}(3*m*n + n + m))
     generateVertices!(mesh)
-    generateTriangles!(mesh)
-    generateEdges!(mesh)
+    #generateTriangles!(mesh)
+    #generateEdges!(mesh)
     return mesh
   end
 end
@@ -41,7 +41,8 @@ function generateVertices!(mesh::UniformTriangleMesh)
   height::Float64 = 1.0/mesh.n
   for i = 1:mesh.m+1
     for j = 1:mesh.n+1
-      mesh.vertices[j + (i-1)*(mesh.n+1)] = [width*(i-1) height*(j-1)]
+      mesh.vertices[j + (i-1)*(mesh.n+1), 1] = width*(i-1)
+      mesh.vertices[j + (i-1)*(mesh.n+1), 2]=  height*(j-1)
     end
   end
 end

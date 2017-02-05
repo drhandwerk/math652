@@ -1,7 +1,9 @@
-
+__precompile__()
 module UniformMesh
 
-export UniformTriangleMesh
+using PyPlot
+
+export UniformTriangleMesh, drawmesh
 """
   UniformTriangleMesh(m,n)
 
@@ -105,4 +107,17 @@ function generateEdges!(mesh::UniformTriangleMesh)
     end
   end
 end
+
+"""
+  drawmesh(mesh)
+
+Plot the vertices and edges for the mesh.
+"""
+function drawmesh(mesh::UniformTriangleMesh)
+  # Vertices
+  scatter(mesh.vertices[:,1], mesh.vertices[:,2], marker="o", s = 100, color="blue")
+  # Edges
+  plot([mesh.edges[:,1],mesh.edges[:,3]],[mesh.edges[:,2],mesh.edges[:,4]],linestyle="-",color="green")
 end
+
+end # End module

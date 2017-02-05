@@ -9,6 +9,19 @@ export UniformTriangleMesh, drawmesh
 
 Creates a uniform triangle mesh of the unit square with 'm' partitions in the
 x direction and 'n' partitions in the y direction.
+
+TODO: should triangles an edges be points (currently) or the indices of the
+vertices? e.g.
+mesh.triangles[count, 1:2] = mesh.vertices[base, :]
+mesh.triangles[count, 3:4] = mesh.vertices[base + (mesh.n + 1), :]
+mesh.triangles[count, 5:6] = mesh.vertices[base + (mesh.n + 2), :]
+
+or
+
+mesh.triangles[count, 1] = base
+mesh.triangles[count, 2] = base + (mesh.n + 1)
+mesh.triangles[count, 3] = base + (mesh.n + 2)
+Don't forget to change constructor if this is implemented
 """
 type UniformTriangleMesh
   m::Int64 # Number of partitions in x-dir

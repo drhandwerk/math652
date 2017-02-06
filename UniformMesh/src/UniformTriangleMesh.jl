@@ -58,7 +58,7 @@ function generateVertices!(mesh::UniformTriangleMesh)
   for i = 1:mesh.m+1
     for j = 1:mesh.n+1
       mesh.vertices[j + (i-1)*(mesh.n+1), 1] = width*(i-1)  # x component
-      mesh.vertices[j + (i-1)*(mesh.n+1), 2]=  height*(j-1) # y component
+      mesh.vertices[j + (i-1)*(mesh.n+1), 2] = height*(j-1) # y component
     end
   end
 end

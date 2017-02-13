@@ -202,7 +202,7 @@ function drawmesh(mesh::UniformPolyMesh)
   end
   # Edges
   for i = 1:size(mesh.edges,1)
-  plot(mesh.vertices[mesh.edges[i,:],1], mesh.vertices[mesh.edges[i,:],2],linestyle="-",color="green")
+    plot(mesh.vertices[mesh.edges[i,:],1], mesh.vertices[mesh.edges[i,:],2],linestyle="-",color="green")
   end
   # Vertices
   scatter(mesh.vertices[:,1], mesh.vertices[:,2], marker="o", s = 30, color="blue")

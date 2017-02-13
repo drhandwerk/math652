@@ -40,7 +40,7 @@ end
 
 """
   rhs(mesh)
-Assemlbe the vector b (RHS) by summing over elements.
+Assemble the vector b (RHS) by summing over elements.
 """
 function rhs(mesh::UniformRectMesh)
   b = zeros(Float64, size(mesh.vertices,1), 1) # preallocate
@@ -74,7 +74,8 @@ function esmrect(p1::Array{Float64,1}, p2::Array{Float64,1})
 end
 
 """
- build gsm from esms for rectangle
+  gsm(mesh)
+Assemble the gsm from all of the element stiffness matrices. 
 """
 function gsm(mesh::UniformRectMesh)
   G = zeros(Float64, size(mesh.vertices,1), size(mesh.vertices,1)) # preallocate
@@ -88,7 +89,8 @@ end
 
 
 """
-
+  setdirichlet!(mesh, G, b)
+Naively modifies in place the esm, G and the RHS, b for homogeneous Dirichlet BC.
 """
 function setdirichlet!(mesh::UniformRectMesh, G::Array{Float64, 2}, b::Array{Float64,2})
   #b = zeros(size(mesh.vertices,1), 1) # preallocate

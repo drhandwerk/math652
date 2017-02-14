@@ -8,19 +8,14 @@ export poissonsolve
 function poissonsolve(n::Int64)
   # get mesh
   mesh = UniformRectMesh(n,n)
-
   # get global stiffness matrix
   G = gsm(mesh)
-
   # set RHS from quadrature over elements
   b = rhs(mesh)
-
   # set BC
   setdirichlet!(mesh,G,b)
-
-  # computer coeffs
+  # compute coeffs
   c = G\b
-
   # return as matrix
   return reshape(c,n+1,n+1)
 end
@@ -75,7 +70,7 @@ end
 
 """
   gsm(mesh)
-Assemble the gsm from all of the element stiffness matrices. 
+Assemble the gsm from all of the element stiffness matrices.
 """
 function gsm(mesh::UniformRectMesh)
   G = zeros(Float64, size(mesh.vertices,1), size(mesh.vertices,1)) # preallocate

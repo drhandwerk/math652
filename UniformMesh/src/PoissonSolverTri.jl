@@ -37,13 +37,13 @@ function solveanddraw(n::Int64)
   trimesh = UniformTriangleMesh(n,n)
   fig = figure()
   ax = fig[:add_subplot](111, projection="3d")
-  ax[:plot_trisurf](trimesh.vertices[:,1],trimesh.vertices[:,2], triangles=trimesh.triangles-1, c[:], alpha=1, cmap="viridis", edgecolors=:black)
+  ax[:plot_trisurf](trimesh.vertices[:,1],trimesh.vertices[:,2], triangles=trimesh.triangles-1, c[:], alpha=1, cmap="viridis")#, edgecolors=:black)
   ax[:set_title](string(n, "x", n), fontsize=22)
-  ax[:set_xlabel]("X", fontsize=25)
-  ax[:set_ylabel]("Y", fontsize=25)
-  ax[:xaxis][:set_tick_params](labelsize=18)
-  ax[:yaxis][:set_tick_params](labelsize=18)
-  ax[:zaxis][:set_tick_params](labelsize=18)
+  ax[:set_xlabel]("X", fontsize=22)
+  ax[:set_ylabel]("Y", fontsize=22)
+  ax[:xaxis][:set_tick_params](labelsize=15)
+  ax[:yaxis][:set_tick_params](labelsize=15)
+  ax[:zaxis][:set_tick_params](labelsize=15)
 end
 
 """
@@ -52,18 +52,29 @@ Solves the problem for various grid sizes and computes the L2 and H1 norms for c
 """
 function solveandnorm()
   println(" ", "="^43)
-  println("|", " "^4, "n", " "^4, "|", " "^4, "L2error", " "^5, "|", " "^5, "H1error", " "^4, "|")
+  println("|", " "^4, "n", " "^4, "|", " "^4, "L2error", " "^5, "|", " "^5, "L2Conv", " "^5, "|", " "^5, "H1error", " "^4, "|")
   println(" ", "="^43)
-  for n in [8, 16, 32, 64]
+  prevL2error = 1.0
+  prevH1error = 1.0
+  nold = 8
+  for n in [8, 16, 32, 64, 128]
     c = poissonsolve(n)
     errL2 = errorL2(c,n)
     errH1 = errorH1(c,n)
+    convergenceL2 = log(2, prevL2error/errL2)
+    prevL2error = errL2
+    convergenceH1 = log(2, sqrt(prevH1error)/sqrt(errH1))
+    prevH1error = errH1
     print("|", " "^3)
     @printf("%3d", n)
     print(" "^3, "|", " "^3)
-    @printf("%6.8f", sqrt(errL2))
+    @printf("%6.8f", errL2)
     print(" "^3, "|", " "^3)
-    @printf("%6.8f", sqrt(errL2 + errH1))
+    @printf("%6.8f", convergenceL2)
+    print(" "^3, "|", " "^3)
+    @printf("%6.8f", sqrt(errL2^2 + errH1))
+    print(" "^3, "|", " "^3)
+    @printf("%6.8f", convergenceH1)
     println(" "^3, "|")
   end
   println(" ", "="^43)
@@ -77,44 +88,53 @@ function errorL2(c::Array{Float64, 2}, n::Int64)
   trimesh = UniformTriangleMesh(n,n)
   error = 0.0
   for t = 1:size(trimesh.triangles,1)
-    p1 = trimesh.vertices[trimesh.triangles[t,1],:]
-    p2 = trimesh.vertices[trimesh.triangles[t,2],:]
-    p3 = trimesh.vertices[trimesh.triangles[t,3],:]
-    area = abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-    c1,c2,c3 = c[:][trimesh.triangles[t,:]]
-    uh(x) = x == p1 ? c1 : x == p2 ? c2 : c3
-    # integrate the difference of the exact and approximate solutions
-    b1 = trigaussquad(x -> abs((sin(pi*x[1])*sin(pi*x[2]) - uh(x)) * abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area)^2, p1, p2, p3)
-    b2 = trigaussquad(x -> abs((sin(pi*x[1])*sin(pi*x[2]) - uh(x)) * abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area)^2, p1, p2, p3)
-    b3 = trigaussquad(x -> abs((sin(pi*x[1])*sin(pi*x[2]) - uh(x)) * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area)^2, p1, p2, p3)
-    error += b1
-    error += b2
-    error += b3
-  end
-  return error
-end
-
-"""
-  errorH1()
-Compute the L2 error between the exact solution and the approximate solution.
-"""
-function errorH1(c::Array{Float64, 2}, n::Int64)
-  trimesh = UniformTriangleMesh(n,n)
-  error = [0.0,]
-  for t = 1:size(trimesh.triangles,1)
+    trierror = 0.0
     p1 = trimesh.vertices[trimesh.triangles[t,1],:]
     p2 = trimesh.vertices[trimesh.triangles[t,2],:]
     p3 = trimesh.vertices[trimesh.triangles[t,3],:]
     area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
     c1,c2,c3 = c[:][trimesh.triangles[t,:]]
-    u(x) = sin(pi*x[1])*sin(pi*x[2])
     uh(x) = x == p1 ? c1 : x == p2 ? c2 : c3
     # integrate the difference of the exact and approximate solutions
-    b1 = (u(p1) - uh(p1)) * 0.5*[p2[2]-p3[2], p1[1]-p3[1]]/area
-    b2 = (u(p2) - uh(p2)) * 0.5*[p3[2]-p1[2], p1[1]-p3[1]]/area
-    b3 = (u(p3) - uh(p3)) * 0.5*[p1[2]-p2[2], p2[1]-p1[1]]/area
-    b = b1+b2+b3
-    error += b'*b * area
+    b1 = trigaussquad(x -> abs((sin(pi*x[1])*sin(pi*x[2]) - uh(x)) * 0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area)^2, p1, p2, p3)
+    b2 = trigaussquad(x -> abs((sin(pi*x[1])*sin(pi*x[2]) - uh(x)) * 0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area)^2, p1, p2, p3)
+    b3 = trigaussquad(x -> abs((sin(pi*x[1])*sin(pi*x[2]) - uh(x)) * 0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area)^2, p1, p2, p3)
+    trierror += b1
+    trierror += b2
+    trierror += b3
+    trierror *= area
+    error += trierror
+  end
+  return sqrt(error)
+end
+
+"""
+  errorH1()
+Compute the H1 error between the exact solution and the approximate solution.
+"""
+function errorH1(c::Array{Float64, 2}, n::Int64)
+  trimesh = UniformTriangleMesh(n,n)
+  error = [0.0,]
+  for t = 1:size(trimesh.triangles,1)
+    trierror = 0.0
+    p1 = trimesh.vertices[trimesh.triangles[t,1],:]
+    p2 = trimesh.vertices[trimesh.triangles[t,2],:]
+    p3 = trimesh.vertices[trimesh.triangles[t,3],:]
+    area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
+    c1,c2,c3 = c[:][trimesh.triangles[t,:]]
+    uh(x) = x == p1 ? c1 : x == p2 ? c2 : c3
+    # integrate the difference of the exact and approximate solutions
+    b1 = trigaussquad(x -> abs(vecdot(pi*cos(pi*x[1])*sin(pi*x[2]) - uh(x) * 0.5*[p2[2]-p3[2], p1[1]-p3[1]]/area,
+                                      pi*sin(pi*x[1])*cos(pi*x[2]) - uh(x) * 0.5*[p2[2]-p3[2], p1[1]-p3[1]]/area)), p1, p2, p3)
+    b2 = trigaussquad(x -> abs(vecdot(pi*cos(pi*x[1])*sin(pi*x[2]) - uh(x) * 0.5*[p3[2]-p1[2], p1[1]-p3[1]]/area,
+                                      pi*sin(pi*x[1])*cos(pi*x[2]) - uh(x) * 0.5*[p3[2]-p1[2], p1[1]-p3[1]]/area)), p1, p2, p3)
+    b3 = trigaussquad(x -> abs(vecdot(pi*cos(pi*x[1])*sin(pi*x[2]) - uh(x) * 0.5*[p1[2]-p2[2], p2[1]-p1[1]]/area,
+                                      pi*sin(pi*x[1])*cos(pi*x[2]) - uh(x) * 0.5*[p1[2]-p2[2], p2[1]-p1[1]]/area)), p1, p2, p3)
+    trierror += b1
+    trierror += b2
+    trierror += b3
+    trierror *= area
+    error += trierror
   end
   return error[1]
 end
@@ -224,8 +244,8 @@ function setneumann!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{F
     p2 = mesh.vertices[mesh.triangles[e,2],:]
     p3 = mesh.vertices[mesh.triangles[e,3],:]
     area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-    (b1, err1) = hcubature(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area, p3, p2)
-    (b2, err1) = hcubature(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area, p3, p2)
+    (b1, err1) = hcubature(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area, p3, p2)
+    (b2, err1) = hcubature(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area, p3, p2)
     b[mesh.triangles[e,:]] += [0.0; b1; b2]
   end
   for e in bottomelements
@@ -233,8 +253,8 @@ function setneumann!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{F
     p2 = mesh.vertices[mesh.triangles[e,2],:]
     p3 = mesh.vertices[mesh.triangles[e,3],:]
     area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-    (b1, err1) = hcubature(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * 0.5 * abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area, p1, p2)
-    (b2, err1) = hcubature(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area, p1, p2)
+    (b1, err1) = hcubature(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * 0.5 * abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area, p1, p2)
+    (b2, err1) = hcubature(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area, p1, p2)
     b[mesh.triangles[e,:]] += [b1; b2; 0.0]
   end
 end

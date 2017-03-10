@@ -1,5 +1,5 @@
 
-include("./UniformMesh.jl")
+include("UniformMesh.jl")
 using UniformMesh
 using Cubature # for quadrature
 
@@ -101,5 +101,17 @@ function setdirichlet!(mesh::UniformRectMesh, G::Array{Float64, 2}, b::Array{Flo
     @inbounds ind[i,i] = false
   end
   @inbounds G[ind] = 0.0
+  #= this is to set the Dirichlet boundary to some function.
+  X,Y = ndgrid(linspace(0,1,mesh.n+1),linspace(0,1,mesh.m+1))
+  g = X + Y
+  bvals = g[exteriorvertices];
+  =#
   @inbounds b[exteriorvertices] = 0.0
+end
+
+function ndgrid{T}(v1::AbstractArray{T}, v2::AbstractArray{T})
+    m, n = length(v1), length(v2)
+    v1 = reshape(v1, m, 1)
+    v2 = reshape(v2, 1, n)
+    (repmat(v1, 1, n), repmat(v2, m, 1))
 end

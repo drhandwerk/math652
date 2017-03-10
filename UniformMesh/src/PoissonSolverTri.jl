@@ -146,20 +146,22 @@ function setneumann!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{F
   end
   # quadrature over each elements
   for e in topelements
-    p1 = mesh.vertices[mesh.triangles[e,1]
-    p2 = mesh.vertices[mesh.triangles[e,2]
-    p3 = mesh.vertices[mesh.triangles[e,3]
+    p1 = mesh.vertices[mesh.triangles[e,1],:]
+    p2 = mesh.vertices[mesh.triangles[e,2],:]
+    p3 = mesh.vertices[mesh.triangles[e,3],:]
     area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-    (b1, err1) = hcubature(x -> uN * elementphi2, p3, p2)
-    (b2, err1) = hcubature(x -> uN * elementphi3, p3, p2)
+    (b1, err1) = hcubature(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area, p3, p2)
+    (b2, err1) = hcubature(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area, p3, p2)
+    b[mesh.triangles[e,:]] += [0.0; b1; b2]
   end
   for e in bottomelements
-    p1 = mesh.vertices[mesh.triangles[e,1]
-    p2 = mesh.vertices[mesh.triangles[e,2]
-    p3 = mesh.vertices[mesh.triangles[e,3]
+    p1 = mesh.vertices[mesh.triangles[e,1],:]
+    p2 = mesh.vertices[mesh.triangles[e,2],:]
+    p3 = mesh.vertices[mesh.triangles[e,3],:]
     area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-    (b1, err1) = hcubature(x -> uN * elementphi2, p1, p2)
-    (b2, err1) = hcubature(x -> uN * elementphi3, p1, p2)
+    (b1, err1) = hcubature(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * 0.5 * abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area, p1, p2)
+    (b2, err1) = hcubature(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area, p1, p2)
+    b[mesh.triangles[e,:]] += [b1; b2; 0.0]
   end
   # update global b with the new parts from quadrature
 end

@@ -19,7 +19,7 @@ function poissonsolve(n::Int64)
   # set RHS from quadrature over elements
   b = rhs(mesh)
   # set BC
-  setneumann!(mesh,G,b)
+  #setneumann!(mesh,G,b)
   setdirichlet!(mesh,G,b)
   # compute coeffs
   c = G\b
@@ -51,13 +51,14 @@ end
 Solves the problem for various grid sizes and computes the L2 and H1 norms for convergence purposes.
 """
 function solveandnorm()
-  println(" ", "="^43)
-  println("|", " "^4, "n", " "^4, "|", " "^4, "L2error", " "^5, "|", " "^5, "L2Conv", " "^5, "|", " "^5, "H1error", " "^4, "|")
-  println(" ", "="^43)
+  println(" ", "="^72)
+  println("|", " "^4, "n", " "^4, "|", " "^4, "L2error", " "^5, "|", " "^5, "L2Conv",
+          " "^5, "|", " "^5, "H1error", " "^4, "|", " "^5, "H1Conv", " "^5, "|")
+  println(" ", "="^72)
   prevL2error = 1.0
   prevH1error = 1.0
   nold = 8
-  for n in [8, 16, 32, 64, 128]
+  for n in [8, 16, 32, 64]
     c = poissonsolve(n)
     errL2 = errorL2(c,n)
     errH1 = errorH1(c,n)
@@ -77,7 +78,7 @@ function solveandnorm()
     @printf("%6.8f", convergenceH1)
     println(" "^3, "|")
   end
-  println(" ", "="^43)
+  println(" ", "="^72)
 end
 
 """
@@ -140,19 +141,7 @@ function errorH1(c::Array{Float64, 2}, n::Int64)
 end
 
 """
-  elementrhs()
-Do quadrature over a triangular element for RHS.
-"""
-function elementrhs(length::Int64, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
-  area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  b1 = trigaussquad(x -> 2*pi^2*sin(pi*x[1])*sin(pi*x[2]) * 0.5 * abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area, p1, p2, p3)
-  b2 = trigaussquad(x -> 2*pi^2*sin(pi*x[1])*sin(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area, p1, p2, p3)
-  b3 = trigaussquad(x -> 2*pi^2*sin(pi*x[1])*sin(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area, p1, p2, p3)
-  return [b1; b2; b3]
-end
-
-"""
-  trigaussquad()
+  trigaussquad(f,p1,p2,p3)
 Do Gaussian quadrature over a triangle using three interpolation points.
 """
 function trigaussquad(f::Function, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
@@ -164,9 +153,38 @@ function trigaussquad(f::Function, p1::Array{Float64,1}, p2::Array{Float64,1}, p
   for i = 1:3
     sum += 1.0/3.0 * f(barycoords[i,1]*p1 + barycoords[i,2]*p2 + barycoords[i,3]*p3)
   end
-  sum *= area
-  return sum
+  return sum * area
 end
+
+"""
+  linguassquad(f,p1,p2)
+Perform Gaussian quadrature over a line using three interpolation points.
+"""
+function linguassquad(f::Function, p1::Array{Float64,1}, p2::Array{Float64,1})
+  length = sqrt((p2[1]-p1[1])^2 + (p2[2]-p1[2])^2)
+  weights = [5./18. 8./18. 5./18.]
+  barycoords = [1./2.*(1+sqrt(3./5.)) 1./2.*(1-sqrt(3./5.));
+                1./2. 1./2.;
+                1./2.*(1-sqrt(3./5.)) 1./2.*(1+sqrt(3./5.))]
+  sum = 0.0
+  for i = 1:3
+    sum += weights[i] * f(barycoords[i,1]*p1 + barycoords[i,2]*p2)
+  end
+  return sum * length
+end
+
+"""
+  elementrhs()
+Do quadrature over a triangular element for RHS.
+"""
+function elementrhs(length::Int64, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
+  area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
+  b1 = trigaussquad(x -> 2*pi^2*sin(pi*x[1])*sin(pi*x[2]) * 0.5 * abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area, p1, p2, p3)
+  b2 = trigaussquad(x -> 2*pi^2*sin(pi*x[1])*sin(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area, p1, p2, p3)
+  b3 = trigaussquad(x -> 2*pi^2*sin(pi*x[1])*sin(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area, p1, p2, p3)
+  return [b1; b2; b3]
+end
+
 """
   rhs(mesh)
 Assemble the vector b (RHS) by summing over elements.
@@ -190,16 +208,16 @@ element stiffness matrix.
 function esmtri(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
   E = zeros(Float64, 3, 3)
-  A11 = 1.0/(2.0*area) * (p2[2] - p3[2])^2 + (p1[1] - p3[1])^2
-  A22 = 1.0/(2.0*area) * (p3[2] - p1[2])^2 + (p1[1] - p3[1])^2
-  A33 = 1.0/(2.0*area) * (p1[2] - p2[2])^2 + (p2[1] - p1[1])^2
-  A12 = 1.0/(2.0*area) * (p2[2] - p3[2])*(p3[2] - p1[2]) + (p1[1] - p3[1])*(p1[1] - p3[1])
-  A13 = 1.0/(2.0*area) * (p2[2] - p3[2])*(p1[2] - p2[2]) + (p1[1] - p3[1])*(p2[1] - p1[1])
-  A23 = 1.0/(2.0*area) * (p3[2] - p1[2])*(p1[2] - p2[2]) + (p1[1] - p3[1])*(p2[1] - p1[1])
+  A11 = (p2[2] - p3[2])^2 + (p1[1] - p3[1])^2
+  A22 = (p3[2] - p1[2])^2 + (p1[1] - p3[1])^2
+  A33 = (p1[2] - p2[2])^2 + (p2[1] - p1[1])^2
+  A12 = (p2[2] - p3[2])*(p3[2] - p1[2]) + (p1[1] - p3[1])*(p1[1] - p3[1])
+  A13 = (p2[2] - p3[2])*(p1[2] - p2[2]) + (p1[1] - p3[1])*(p2[1] - p1[1])
+  A23 = (p3[2] - p1[2])*(p1[2] - p2[2]) + (p1[1] - p3[1])*(p2[1] - p1[1])
 
-  E = [A11 A12 A13;
-       A12 A22 A23;
-       A13 A23 A33]
+  E = 1.0/(1.0*area).*[A11 A12 A13;
+                       A12 A22 A23;
+                       A13 A23 A33]
 
 end
 
@@ -243,19 +261,19 @@ function setneumann!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{F
     p1 = mesh.vertices[mesh.triangles[e,1],:]
     p2 = mesh.vertices[mesh.triangles[e,2],:]
     p3 = mesh.vertices[mesh.triangles[e,3],:]
-    area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-    (b1, err1) = hcubature(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area, p3, p2)
-    (b2, err1) = hcubature(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area, p3, p2)
-    b[mesh.triangles[e,:]] += [0.0; b1; b2]
+    b1 = linguassquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/sqrt((p2[1]-p3[1])^2 + (p2[2]-p3[2])^2), p3, p2)
+    b2 = linguassquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p3[1]-x[1])^2 + (p3[2]-x[2])^2)/sqrt((p2[1]-p3[1])^2 + (p2[2]-p3[2])^2), p3, p2)
+    b[mesh.triangles[e,:]] -= [0.0; b2; b1]
+
   end
   for e in bottomelements
     p1 = mesh.vertices[mesh.triangles[e,1],:]
     p2 = mesh.vertices[mesh.triangles[e,2],:]
     p3 = mesh.vertices[mesh.triangles[e,3],:]
-    area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-    (b1, err1) = hcubature(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * 0.5 * abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area, p1, p2)
-    (b2, err1) = hcubature(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area, p1, p2)
-    b[mesh.triangles[e,:]] += [b1; b2; 0.0]
+    b1 = linguassquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/sqrt((p2[1]-p1[1])^2 + (p2[2]-p1[2])^2), p1, p2)
+    b2 = linguassquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p1[1]-x[1])^2 + (p1[2]-x[2])^2)/sqrt((p2[1]-p1[1])^2 + (p2[2]-p1[2])^2), p1, p2)
+    b[mesh.triangles[e,:]] -= [b1; b2; 0.0]
+
   end
 end
 
@@ -291,6 +309,30 @@ function setdirichlet!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array
   =#
   @inbounds b[leftvertices] = 0.0
   @inbounds b[rightvertices] = 0.0
+end
+
+"""
+  setalldirichlet!(mesh, G, b)
+Naively modifies in place the esm, G and the RHS, b for homogeneous Dirichlet BC.
+"""
+function setalldirichlet!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{Float64,2})
+  # get boundary vertices
+  V = reshape(1:size(mesh.vertices,1), mesh.m+1, mesh.n+1)
+  interiorvertices = V[2:end-1, 2:end-1][:] # vector
+  exteriorvertices = setdiff(1:size(mesh.vertices,1), interiorvertices)
+
+  ind = trues(size(G)) # indices to zero out
+  ind[interiorvertices,:] = false # keep interiorvertices rows
+  for i in exteriorvertices # keep what's on the diagonal
+    @inbounds ind[i,i] = false
+  end
+  @inbounds G[ind] = 0.0
+  #= this is to set the Dirichlet boundary to some function.
+  X,Y = ndgrid(linspace(0,1,mesh.n+1),linspace(0,1,mesh.m+1))
+  g = X + Y
+  bvals = g[exteriorvertices];
+  =#
+  @inbounds b[exteriorvertices] = 0.0
 end
 
 function ndgrid{T}(v1::AbstractArray{T}, v2::AbstractArray{T})

@@ -20,7 +20,7 @@ function poissonsolve(n::Int64)
   b = rhs(mesh)
   # set BC
   #setneumann!(mesh,G,b)
-  setdirichlet!(mesh,G,b)
+  setalldirichlet!(mesh,G,b)
   # compute coeffs
   c = G\b
   # return as matrix
@@ -170,7 +170,7 @@ function linguassquad(f::Function, p1::Array{Float64,1}, p2::Array{Float64,1})
   for i = 1:3
     sum += weights[i] * f(barycoords[i,1]*p1 + barycoords[i,2]*p2)
   end
-  return sum * length
+  return sum *length
 end
 
 """
@@ -208,16 +208,16 @@ element stiffness matrix.
 function esmtri(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
   E = zeros(Float64, 3, 3)
-  A11 = (p2[2] - p3[2])^2 + (p1[1] - p3[1])^2
-  A22 = (p3[2] - p1[2])^2 + (p1[1] - p3[1])^2
-  A33 = (p1[2] - p2[2])^2 + (p2[1] - p1[1])^2
-  A12 = (p2[2] - p3[2])*(p3[2] - p1[2]) + (p1[1] - p3[1])*(p1[1] - p3[1])
-  A13 = (p2[2] - p3[2])*(p1[2] - p2[2]) + (p1[1] - p3[1])*(p2[1] - p1[1])
-  A23 = (p3[2] - p1[2])*(p1[2] - p2[2]) + (p1[1] - p3[1])*(p2[1] - p1[1])
+  A11 = 1.0/(2.0*area) * (p2[2] - p3[2])^2 + (p1[1] - p3[1])^2
+  A22 = 1.0/(2.0*area) * (p3[2] - p1[2])^2 + (p1[1] - p3[1])^2
+  A33 = 1.0/(2.0*area) * (p1[2] - p2[2])^2 + (p2[1] - p1[1])^2
+  A12 = 1.0/(2.0*area) * (p2[2] - p3[2])*(p3[2] - p1[2]) + (p1[1] - p3[1])*(p1[1] - p3[1])
+  A13 = 1.0/(2.0*area) * (p2[2] - p3[2])*(p1[2] - p2[2]) + (p1[1] - p3[1])*(p2[1] - p1[1])
+  A23 = 1.0/(2.0*area) * (p3[2] - p1[2])*(p1[2] - p2[2]) + (p1[1] - p3[1])*(p2[1] - p1[1])
 
-  E = 1.0/(1.0*area).*[A11 A12 A13;
-                       A12 A22 A23;
-                       A13 A23 A33]
+  E = [A11 A12 A13;
+       A12 A22 A23;
+       A13 A23 A33]
 
 end
 
@@ -261,8 +261,9 @@ function setneumann!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{F
     p1 = mesh.vertices[mesh.triangles[e,1],:]
     p2 = mesh.vertices[mesh.triangles[e,2],:]
     p3 = mesh.vertices[mesh.triangles[e,3],:]
-    b1 = linguassquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/sqrt((p2[1]-p3[1])^2 + (p2[2]-p3[2])^2), p3, p2)
-    b2 = linguassquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p3[1]-x[1])^2 + (p3[2]-x[2])^2)/sqrt((p2[1]-p3[1])^2 + (p2[2]-p3[2])^2), p3, p2)
+    length = sqrt((p2[1]-p3[1])^2 + (p2[2]-p3[2])^2)
+    b1 = linguassquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/length, p3, p2)
+    b2 = linguassquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p3[1]-x[1])^2 + (p3[2]-x[2])^2)/length, p3, p2)
     b[mesh.triangles[e,:]] -= [0.0; b2; b1]
 
   end
@@ -270,8 +271,9 @@ function setneumann!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{F
     p1 = mesh.vertices[mesh.triangles[e,1],:]
     p2 = mesh.vertices[mesh.triangles[e,2],:]
     p3 = mesh.vertices[mesh.triangles[e,3],:]
-    b1 = linguassquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/sqrt((p2[1]-p1[1])^2 + (p2[2]-p1[2])^2), p1, p2)
-    b2 = linguassquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p1[1]-x[1])^2 + (p1[2]-x[2])^2)/sqrt((p2[1]-p1[1])^2 + (p2[2]-p1[2])^2), p1, p2)
+    length = sqrt((p2[1]-p1[1])^2 + (p2[2]-p1[2])^2)
+    b1 = linguassquad(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/length, p1, p2)
+    b2 = linguassquad(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p1[1]-x[1])^2 + (p1[2]-x[2])^2)/length, p1, p2)
     b[mesh.triangles[e,:]] -= [b1; b2; 0.0]
 
   end

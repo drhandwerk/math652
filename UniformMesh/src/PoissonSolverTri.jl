@@ -11,6 +11,11 @@ export poissonsolve
 export solveanddraw
 export solveandnorm
 
+
+"""
+  poissonsolve(n)
+Solves the problem and returns matrix of coeffs.
+"""
 function poissonsolve(n::Int64)
   # get mesh
   mesh = UniformTriangleMesh(n,n)
@@ -19,8 +24,8 @@ function poissonsolve(n::Int64)
   # set RHS from quadrature over elements
   b = rhs(mesh)
   # set BC
-  #setneumann!(mesh,G,b)
-  setalldirichlet!(mesh,G,b)
+  setneumann!(mesh,G,b)
+  setdirichlet!(mesh,G,b)
   # compute coeffs
   c = G\b
   # return as matrix
@@ -37,7 +42,7 @@ function solveanddraw(n::Int64)
   trimesh = UniformTriangleMesh(n,n)
   fig = figure()
   ax = fig[:add_subplot](111, projection="3d")
-  ax[:plot_trisurf](trimesh.vertices[:,1],trimesh.vertices[:,2], triangles=trimesh.triangles-1, c[:], alpha=1, cmap="viridis")#, edgecolors=:black)
+  ax[:plot_trisurf](trimesh.vertices[:,1],trimesh.vertices[:,2], triangles=trimesh.triangles-1, c[:], alpha=1, cmap="viridis", edgecolors="None")
   ax[:set_title](string(n, "x", n), fontsize=22)
   ax[:set_xlabel]("X", fontsize=22)
   ax[:set_ylabel]("Y", fontsize=22)
@@ -51,10 +56,10 @@ end
 Solves the problem for various grid sizes and computes the L2 and H1 norms for convergence purposes.
 """
 function solveandnorm()
-  println(" ", "="^72)
+  println(" ", "="^76)
   println("|", " "^4, "n", " "^4, "|", " "^4, "L2error", " "^5, "|", " "^5, "L2Conv",
           " "^5, "|", " "^5, "H1error", " "^4, "|", " "^5, "H1Conv", " "^5, "|")
-  println(" ", "="^72)
+  println(" ", "="^76)
   prevL2error = 1.0
   prevH1error = 1.0
   nold = 8
@@ -78,7 +83,7 @@ function solveandnorm()
     @printf("%6.8f", convergenceH1)
     println(" "^3, "|")
   end
-  println(" ", "="^72)
+  println(" ", "="^76)
 end
 
 """
@@ -125,12 +130,12 @@ function errorH1(c::Array{Float64, 2}, n::Int64)
     c1,c2,c3 = c[:][trimesh.triangles[t,:]]
     uh(x) = x == p1 ? c1 : x == p2 ? c2 : c3
     # integrate the difference of the exact and approximate solutions
-    b1 = trigaussquad(x -> abs(vecdot(pi*cos(pi*x[1])*sin(pi*x[2]) - uh(x) * 0.5*[p2[2]-p3[2], p1[1]-p3[1]]/area,
-                                      pi*sin(pi*x[1])*cos(pi*x[2]) - uh(x) * 0.5*[p2[2]-p3[2], p1[1]-p3[1]]/area)), p1, p2, p3)
-    b2 = trigaussquad(x -> abs(vecdot(pi*cos(pi*x[1])*sin(pi*x[2]) - uh(x) * 0.5*[p3[2]-p1[2], p1[1]-p3[1]]/area,
-                                      pi*sin(pi*x[1])*cos(pi*x[2]) - uh(x) * 0.5*[p3[2]-p1[2], p1[1]-p3[1]]/area)), p1, p2, p3)
-    b3 = trigaussquad(x -> abs(vecdot(pi*cos(pi*x[1])*sin(pi*x[2]) - uh(x) * 0.5*[p1[2]-p2[2], p2[1]-p1[1]]/area,
-                                      pi*sin(pi*x[1])*cos(pi*x[2]) - uh(x) * 0.5*[p1[2]-p2[2], p2[1]-p1[1]]/area)), p1, p2, p3)
+    b1 = trigaussquad(x -> abs(vecdot(pi*cos(pi*x[1])*sin(pi*x[2]) - uh(x) * 0.5*abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area,
+                                      pi*sin(pi*x[1])*cos(pi*x[2]) - uh(x) * 0.5*abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area)), p1, p2, p3)
+    b2 = trigaussquad(x -> abs(vecdot(pi*cos(pi*x[1])*sin(pi*x[2]) - uh(x) * 0.5*abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area,
+                                      pi*sin(pi*x[1])*cos(pi*x[2]) - uh(x) * 0.5*abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area)), p1, p2, p3)
+    b3 = trigaussquad(x -> abs(vecdot(pi*cos(pi*x[1])*sin(pi*x[2]) - uh(x) * 0.5*abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area,
+                                      pi*sin(pi*x[1])*cos(pi*x[2]) - uh(x) * 0.5*abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area)), p1, p2, p3)
     trierror += b1
     trierror += b2
     trierror += b3
@@ -208,12 +213,12 @@ element stiffness matrix.
 function esmtri(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
   E = zeros(Float64, 3, 3)
-  A11 = 1.0/(2.0*area) * (p2[2] - p3[2])^2 + (p1[1] - p3[1])^2
-  A22 = 1.0/(2.0*area) * (p3[2] - p1[2])^2 + (p1[1] - p3[1])^2
-  A33 = 1.0/(2.0*area) * (p1[2] - p2[2])^2 + (p2[1] - p1[1])^2
-  A12 = 1.0/(2.0*area) * (p2[2] - p3[2])*(p3[2] - p1[2]) + (p1[1] - p3[1])*(p1[1] - p3[1])
-  A13 = 1.0/(2.0*area) * (p2[2] - p3[2])*(p1[2] - p2[2]) + (p1[1] - p3[1])*(p2[1] - p1[1])
-  A23 = 1.0/(2.0*area) * (p3[2] - p1[2])*(p1[2] - p2[2]) + (p1[1] - p3[1])*(p2[1] - p1[1])
+  A11 = 1.0/(4.0*area) * ((p2[2] - p3[2])^2 + (p3[1] - p2[1])^2)
+  A22 = 1.0/(4.0*area) * ((p3[2] - p1[2])^2 + (p1[1] - p3[1])^2)
+  A33 = 1.0/(4.0*area) * ((p1[2] - p2[2])^2 + (p2[1] - p1[1])^2)
+  A12 = 1.0/(4.0*area) * ((p2[2] - p3[2])*(p3[2] - p1[2]) + (p3[1] - p2[1])*(p1[1] - p3[1]))
+  A13 = 1.0/(4.0*area) * ((p2[2] - p3[2])*(p1[2] - p2[2]) + (p3[1] - p2[1])*(p2[1] - p1[1]))
+  A23 = 1.0/(4.0*area) * ((p3[2] - p1[2])*(p1[2] - p2[2]) + (p1[1] - p3[1])*(p2[1] - p1[1]))
 
   E = [A11 A12 A13;
        A12 A22 A23;
@@ -263,7 +268,9 @@ function setneumann!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{F
     p3 = mesh.vertices[mesh.triangles[e,3],:]
     length = sqrt((p2[1]-p3[1])^2 + (p2[2]-p3[2])^2)
     b1 = linguassquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/length, p3, p2)
+    #(b1,err) = quadgk(x -> pi*sin(pi*x)*cos(pi*1) * sqrt((p2[1]-x)^2 + (p2[2]-1)^2)/length, p3[1], p2[1])
     b2 = linguassquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p3[1]-x[1])^2 + (p3[2]-x[2])^2)/length, p3, p2)
+    #(b2,err) = quadgk(x -> pi*sin(pi*x)*cos(pi*1) * sqrt((p3[1]-x)^2 + (p3[2]-1)^2)/length, p3[1], p2[1])
     b[mesh.triangles[e,:]] -= [0.0; b2; b1]
 
   end
@@ -273,7 +280,9 @@ function setneumann!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{F
     p3 = mesh.vertices[mesh.triangles[e,3],:]
     length = sqrt((p2[1]-p1[1])^2 + (p2[2]-p1[2])^2)
     b1 = linguassquad(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/length, p1, p2)
+    #(b1,err) = quadgk(x -> -pi*sin(pi*x)*cos(pi*0) * sqrt((p2[1]-x)^2 + (p2[2]-0)^2)/length, p1[1], p2[1])
     b2 = linguassquad(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p1[1]-x[1])^2 + (p1[2]-x[2])^2)/length, p1, p2)
+    #(b2,err) = quadgk(x -> -pi*sin(pi*x)*cos(pi*0) * sqrt((p2[1]-x)^2 + (p2[2]-0)^2)/length, p1[1], p2[1])
     b[mesh.triangles[e,:]] -= [b1; b2; 0.0]
 
   end

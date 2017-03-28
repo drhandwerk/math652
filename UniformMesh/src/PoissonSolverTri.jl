@@ -63,7 +63,7 @@ function solveandnorm()
   prevL2error = 1.0
   prevH1error = 1.0
   nold = 8
-  for n in [8, 16, 32, 64, 128]
+  for n in [8, 16, 32, 64]
     c = poissonsolve(n)
     errL2 = errorL2(c,n)
     errH1 = errorH1(c,n)
@@ -100,15 +100,13 @@ function errorL2(c::Array{Float64, 2}, n::Int64)
     p3 = trimesh.vertices[trimesh.triangles[t,3],:]
     area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
     c1,c2,c3 = c[:][trimesh.triangles[t,:]]
+    u(x) = sin(pi*x[1])*sin(pi*x[2])
     uh(x) = x == p1 ? c1 : x == p2 ? c2 : c3
     # integrate the difference of the exact and approximate solutions
-    b1 = trigaussquad(x -> abs((sin(pi*x[1])*sin(pi*x[2]) - uh(x)) * 0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area)^2, p1, p2, p3)
-    b2 = trigaussquad(x -> abs((sin(pi*x[1])*sin(pi*x[2]) - uh(x)) * 0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area)^2, p1, p2, p3)
-    b3 = trigaussquad(x -> abs((sin(pi*x[1])*sin(pi*x[2]) - uh(x)) * 0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area)^2, p1, p2, p3)
-    trierror += b1
-    trierror += b2
-    trierror += b3
-    trierror *= area
+    trierror = trigaussquad(x -> abs(u(x) - uh(p1) * 0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area
+                                          - uh(p2) * 0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area
+                                          - uh(p3) * 0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area)^2, p1, p2, p3)
+
     error += trierror
   end
   return sqrt(error)
@@ -120,7 +118,7 @@ Compute the H1 error between the exact solution and the approximate solution.
 """
 function errorH1(c::Array{Float64, 2}, n::Int64)
   trimesh = UniformTriangleMesh(n,n)
-  error = [0.0,]
+  error = 0.0
   for t = 1:size(trimesh.triangles,1)
     trierror = 0.0
     p1 = trimesh.vertices[trimesh.triangles[t,1],:]
@@ -128,18 +126,24 @@ function errorH1(c::Array{Float64, 2}, n::Int64)
     p3 = trimesh.vertices[trimesh.triangles[t,3],:]
     area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
     c1,c2,c3 = c[:][trimesh.triangles[t,:]]
+    u(x) = pi*cos(pi*x[1])*sin(pi*x[2])
     uh(x) = x == p1 ? c1 : x == p2 ? c2 : c3
     # integrate the difference of the exact and approximate solutions
+    trierror = trigaussquad(x -> abs(vecdot(u(x) - uh(p1) * 0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area
+                                                 - uh(p2) * 0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area
+                                                 - uh(p3) * 0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area,
+                                            u(x) - uh(p1) * 0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area
+                                                 - uh(p2) * 0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area
+                                                 - uh(p3) * 0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area)), p1, p2, p3)
+
+#=
     b1 = trigaussquad(x -> abs(vecdot(pi*cos(pi*x[1])*sin(pi*x[2]) - uh(x) * 0.5*abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area,
                                       pi*sin(pi*x[1])*cos(pi*x[2]) - uh(x) * 0.5*abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area)), p1, p2, p3)
     b2 = trigaussquad(x -> abs(vecdot(pi*cos(pi*x[1])*sin(pi*x[2]) - uh(x) * 0.5*abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area,
                                       pi*sin(pi*x[1])*cos(pi*x[2]) - uh(x) * 0.5*abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area)), p1, p2, p3)
     b3 = trigaussquad(x -> abs(vecdot(pi*cos(pi*x[1])*sin(pi*x[2]) - uh(x) * 0.5*abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area,
                                       pi*sin(pi*x[1])*cos(pi*x[2]) - uh(x) * 0.5*abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area)), p1, p2, p3)
-    trierror += b1
-    trierror += b2
-    trierror += b3
-    trierror *= area
+=#
     error += trierror
   end
   return error[1]

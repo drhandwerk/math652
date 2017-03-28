@@ -24,7 +24,7 @@ function poissonsolve(n::Int64)
   # set RHS from quadrature over elements
   b = rhs(mesh)
   # set BC
-  setneumann!(mesh,G,b)
+  setneumann!(mesh,b)
   setdirichlet!(mesh,G,b)
   # compute coeffs
   c = G\b
@@ -63,7 +63,7 @@ function solveandnorm()
   prevL2error = 1.0
   prevH1error = 1.0
   nold = 8
-  for n in [8, 16, 32, 64]
+  for n in [8, 16, 32, 64, 128]
     c = poissonsolve(n)
     errL2 = errorL2(c,n)
     errH1 = errorH1(c,n)
@@ -162,10 +162,10 @@ function trigaussquad(f::Function, p1::Array{Float64,1}, p2::Array{Float64,1}, p
 end
 
 """
-  linguassquad(f,p1,p2)
+  lingaussquad(f,p1,p2)
 Perform Gaussian quadrature over a line using three interpolation points.
 """
-function linguassquad(f::Function, p1::Array{Float64,1}, p2::Array{Float64,1})
+function lingaussquad(f::Function, p1::Array{Float64,1}, p2::Array{Float64,1})
   length = sqrt((p2[1]-p1[1])^2 + (p2[2]-p1[2])^2)
   weights = [5./18. 8./18. 5./18.]
   barycoords = [1./2.*(1+sqrt(3./5.)) 1./2.*(1-sqrt(3./5.));
@@ -182,7 +182,7 @@ end
   elementrhs()
 Do quadrature over a triangular element for RHS.
 """
-function elementrhs(length::Int64, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
+function elementrhs(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
   b1 = trigaussquad(x -> 2*pi^2*sin(pi*x[1])*sin(pi*x[2]) * 0.5 * abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area, p1, p2, p3)
   b2 = trigaussquad(x -> 2*pi^2*sin(pi*x[1])*sin(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area, p1, p2, p3)
@@ -197,8 +197,7 @@ Assemble the vector b (RHS) by summing over elements.
 function rhs(mesh::UniformTriangleMesh)
   b = zeros(Float64, size(mesh.vertices,1), 1) # preallocate
   for i = 1:size(mesh.triangles,1)
-    @inbounds elemb = elementrhs(size(mesh.vertices,1),
-                       mesh.vertices[mesh.triangles[i,1],:],
+    elemb = elementrhs(mesh.vertices[mesh.triangles[i,1],:],
                        mesh.vertices[mesh.triangles[i,2],:],
                        mesh.vertices[mesh.triangles[i,3],:])
     b[mesh.triangles[i,:]] += elemb
@@ -235,8 +234,8 @@ function gsm(mesh::UniformTriangleMesh)
   #G = SharedArray(Float64, (size(mesh.vertices,1), size(mesh.vertices,1)))
   for i = 1:size(mesh.triangles,1)
     E = esmtri(mesh.vertices[mesh.triangles[i,1],:],
-                mesh.vertices[mesh.triangles[i,2],:],
-                mesh.vertices[mesh.triangles[i,3],:])
+               mesh.vertices[mesh.triangles[i,2],:],
+               mesh.vertices[mesh.triangles[i,3],:])
     G[mesh.triangles[i,:], mesh.triangles[i,:]] += E
   end
   return G
@@ -245,9 +244,9 @@ end
 
 """
   setneumann!(mesh, G, b)
-Modify b using quadrature on the boundary.
+Modify b using quadrature on the boundary. Don't actually need to send G in here.
 """
-function setneumann!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{Float64, 2})
+function setneumann!(mesh::UniformTriangleMesh, b::Array{Float64, 2})
   # get top and bottom elements
   topelements = zeros(Int64, mesh.m)
   bottomelements = zeros(Int64, mesh.m)
@@ -267,9 +266,9 @@ function setneumann!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{F
     p2 = mesh.vertices[mesh.triangles[e,2],:]
     p3 = mesh.vertices[mesh.triangles[e,3],:]
     length = sqrt((p2[1]-p3[1])^2 + (p2[2]-p3[2])^2)
-    b1 = linguassquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/length, p3, p2)
-    b2 = linguassquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p3[1]-x[1])^2 + (p3[2]-x[2])^2)/length, p3, p2)
-    b[mesh.triangles[e,:]] -= [0.0; b2; b1]
+    b1 = lingaussquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/length, p3, p2)
+    b2 = lingaussquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p3[1]-x[1])^2 + (p3[2]-x[2])^2)/length, p3, p2)
+    b[mesh.triangles[e,:]] += [0.0; b2; b1] #need to add instead of subtract because of how nodes/G are ordered/positioned
 
   end
   for e in bottomelements
@@ -277,9 +276,9 @@ function setneumann!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{F
     p2 = mesh.vertices[mesh.triangles[e,2],:]
     #p3 = mesh.vertices[mesh.triangles[e,3],:]
     length = sqrt((p2[1]-p1[1])^2 + (p2[2]-p1[2])^2)
-    b1 = linguassquad(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/length, p1, p2)
-    b2 = linguassquad(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p1[1]-x[1])^2 + (p1[2]-x[2])^2)/length, p1, p2)
-    b[mesh.triangles[e,:]] -= [b1; b2; 0.0]
+    b1 = lingaussquad(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/length, p1, p2)
+    b2 = lingaussquad(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p1[1]-x[1])^2 + (p1[2]-x[2])^2)/length, p1, p2)
+    b[mesh.triangles[e,:]] += [b1; b2; 0.0]
 
   end
 end
@@ -291,6 +290,7 @@ Naively modifies in place the esm, G and the RHS, b for homogeneous Dirichlet BC
 function setdirichlet!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{Float64,2})
   # get all boundary vertices
   V = reshape(1:size(mesh.vertices,1), mesh.m+1, mesh.n+1)
+  V = flipdim(V,1)
   interiorvertices = V[2:end-1, 2:end-1][:] # vector
   exteriorvertices = setdiff(1:size(mesh.vertices,1), interiorvertices)
   topvertices = V[1,2:end-1][:] # only need middle of top
@@ -303,19 +303,19 @@ function setdirichlet!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array
   ind[topvertices,:] = false # keep topvertices
   ind[bottomvertices,:] = false # keep bottomvertices
   for i in leftvertices # keep what's on the diagonal
-    @inbounds ind[i,i] = false
+    ind[i,i] = false
   end
   for i in rightvertices
-    @inbounds ind[i,i] = false
+    ind[i,i] = false
   end
-  @inbounds G[ind] = 0.0
+  G[ind] = 0.0
   #= this is to set the Dirichlet boundary to some function.
   X,Y = ndgrid(linspace(0,1,mesh.n+1),linspace(0,1,mesh.m+1))
   g = X + Y
   bvals = g[exteriorvertices];
   =#
-  @inbounds b[leftvertices] = 0.0
-  @inbounds b[rightvertices] = 0.0
+  b[leftvertices] = 0.0
+  b[rightvertices] = 0.0
 end
 
 """
@@ -325,21 +325,22 @@ Naively modifies in place the esm, G and the RHS, b for homogeneous Dirichlet BC
 function setalldirichlet!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{Float64,2})
   # get boundary vertices
   V = reshape(1:size(mesh.vertices,1), mesh.m+1, mesh.n+1)
+  V = flipdim(V,1) # make the matrix nodes look like picture
   interiorvertices = V[2:end-1, 2:end-1][:] # vector
   exteriorvertices = setdiff(1:size(mesh.vertices,1), interiorvertices)
 
   ind = trues(size(G)) # indices to zero out
   ind[interiorvertices,:] = false # keep interiorvertices rows
   for i in exteriorvertices # keep what's on the diagonal
-    @inbounds ind[i,i] = false
+    ind[i,i] = false
   end
-  @inbounds G[ind] = 0.0
+  G[ind] = 0.0
   #= this is to set the Dirichlet boundary to some function.
   X,Y = ndgrid(linspace(0,1,mesh.n+1),linspace(0,1,mesh.m+1))
   g = X + Y
   bvals = g[exteriorvertices];
   =#
-  @inbounds b[exteriorvertices] = 0.0
+  b[exteriorvertices] = 0.0
 end
 
 function ndgrid{T}(v1::AbstractArray{T}, v2::AbstractArray{T})

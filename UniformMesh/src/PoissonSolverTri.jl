@@ -263,26 +263,22 @@ function setneumann!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{F
   end
   # quadrature over each elements
   for e in topelements
-    p1 = mesh.vertices[mesh.triangles[e,1],:]
+    #p1 = mesh.vertices[mesh.triangles[e,1],:]
     p2 = mesh.vertices[mesh.triangles[e,2],:]
     p3 = mesh.vertices[mesh.triangles[e,3],:]
     length = sqrt((p2[1]-p3[1])^2 + (p2[2]-p3[2])^2)
     b1 = linguassquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/length, p3, p2)
-    #(b1,err) = quadgk(x -> pi*sin(pi*x)*cos(pi*1) * sqrt((p2[1]-x)^2 + (p2[2]-1)^2)/length, p3[1], p2[1])
     b2 = linguassquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p3[1]-x[1])^2 + (p3[2]-x[2])^2)/length, p3, p2)
-    #(b2,err) = quadgk(x -> pi*sin(pi*x)*cos(pi*1) * sqrt((p3[1]-x)^2 + (p3[2]-1)^2)/length, p3[1], p2[1])
     b[mesh.triangles[e,:]] -= [0.0; b2; b1]
 
   end
   for e in bottomelements
     p1 = mesh.vertices[mesh.triangles[e,1],:]
     p2 = mesh.vertices[mesh.triangles[e,2],:]
-    p3 = mesh.vertices[mesh.triangles[e,3],:]
+    #p3 = mesh.vertices[mesh.triangles[e,3],:]
     length = sqrt((p2[1]-p1[1])^2 + (p2[2]-p1[2])^2)
     b1 = linguassquad(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/length, p1, p2)
-    #(b1,err) = quadgk(x -> -pi*sin(pi*x)*cos(pi*0) * sqrt((p2[1]-x)^2 + (p2[2]-0)^2)/length, p1[1], p2[1])
     b2 = linguassquad(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p1[1]-x[1])^2 + (p1[2]-x[2])^2)/length, p1, p2)
-    #(b2,err) = quadgk(x -> -pi*sin(pi*x)*cos(pi*0) * sqrt((p2[1]-x)^2 + (p2[2]-0)^2)/length, p1[1], p2[1])
     b[mesh.triangles[e,:]] -= [b1; b2; 0.0]
 
   end

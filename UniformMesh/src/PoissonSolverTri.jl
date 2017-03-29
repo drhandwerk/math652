@@ -56,10 +56,11 @@ end
 Solves the problem for various grid sizes and computes the L2 and H1 norms for convergence purposes.
 """
 function solveandnorm()
-  println(" ", "="^76)
+  println(" ", "="^94)
   println("|", " "^4, "n", " "^4, "|", " "^4, "L2error", " "^5, "|", " "^5, "L2Conv",
-          " "^5, "|", " "^5, "H1error", " "^4, "|", " "^5, "H1Conv", " "^5, "|")
-  println(" ", "="^76)
+          " "^5, "|", " "^5, "H1error", " "^4, "|", " "^5, "H1Conv", " "^5, "|",
+          " "^3, "H1semierror", " "^2, "|")
+  println(" ", "="^94)
   prevL2error = 1.0
   prevH1error = 1.0
   nold = 8
@@ -69,8 +70,8 @@ function solveandnorm()
     errH1 = errorH1(c,n)
     convergenceL2 = log(2, prevL2error/errL2)
     prevL2error = errL2
-    convergenceH1 = log(2, sqrt(prevH1error)/sqrt(errH1))
-    prevH1error = errH1
+    convergenceH1 = log(2, prevH1error/sqrt(errL2^2 + errH1^2))
+    prevH1error = sqrt(errL2^2 + errH1^2)
     print("|", " "^3)
     @printf("%3d", n)
     print(" "^3, "|", " "^3)
@@ -78,12 +79,14 @@ function solveandnorm()
     print(" "^3, "|", " "^3)
     @printf("%6.8f", convergenceL2)
     print(" "^3, "|", " "^3)
-    @printf("%6.8f", sqrt(errL2^2 + errH1))
+    @printf("%6.8f", sqrt(errL2^2 + errH1^2))
     print(" "^3, "|", " "^3)
     @printf("%6.8f", convergenceH1)
+    print(" "^3, "|", " "^3)
+    @printf("%6.8f", errH1)
     println(" "^3, "|")
   end
-  println(" ", "="^76)
+  println(" ", "="^94)
 end
 
 """
@@ -125,28 +128,16 @@ function errorH1(c::Array{Float64, 2}, n::Int64)
     p2 = trimesh.vertices[trimesh.triangles[t,2],:]
     p3 = trimesh.vertices[trimesh.triangles[t,3],:]
     area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-    c1,c2,c3 = c[:][trimesh.triangles[t,:]]
-    u(x) = pi*cos(pi*x[1])*sin(pi*x[2])
+    c1,c2,c3 = c[:][trimesh.triangles[t,:]] # approximate solution
+    u(x) = [pi*cos(pi*x[1])*sin(pi*x[2]),pi*sin(pi*x[1])*cos(pi*x[2])]
     uh(x) = x == p1 ? c1 : x == p2 ? c2 : c3
-    # integrate the difference of the exact and approximate solutions
-    trierror = trigaussquad(x -> abs(vecdot(u(x) - uh(p1) * 0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area
-                                                 - uh(p2) * 0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area
-                                                 - uh(p3) * 0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area,
-                                            u(x) - uh(p1) * 0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area
-                                                 - uh(p2) * 0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area
-                                                 - uh(p3) * 0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area)), p1, p2, p3)
-
-#=
-    b1 = trigaussquad(x -> abs(vecdot(pi*cos(pi*x[1])*sin(pi*x[2]) - uh(x) * 0.5*abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area,
-                                      pi*sin(pi*x[1])*cos(pi*x[2]) - uh(x) * 0.5*abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area)), p1, p2, p3)
-    b2 = trigaussquad(x -> abs(vecdot(pi*cos(pi*x[1])*sin(pi*x[2]) - uh(x) * 0.5*abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area,
-                                      pi*sin(pi*x[1])*cos(pi*x[2]) - uh(x) * 0.5*abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area)), p1, p2, p3)
-    b3 = trigaussquad(x -> abs(vecdot(pi*cos(pi*x[1])*sin(pi*x[2]) - uh(x) * 0.5*abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area,
-                                      pi*sin(pi*x[1])*cos(pi*x[2]) - uh(x) * 0.5*abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area)), p1, p2, p3)
-=#
+    # integrate the difference of the exact and approximate solution
+    trierror = trigaussquad(x -> norm(u(x) - uh(p1) .* [p2[2]-p3[2],p3[1]-p2[1]]./(2.0*area)
+                                           - uh(p2) .* [p3[2]-p1[2],p1[1]-p3[1]]./(2.0*area)
+                                           - uh(p3) .* [p1[2]-p2[2],p2[1]-p1[1]]./(2.0*area))^2, p1, p2, p3)
     error += trierror
   end
-  return error[1]
+  return sqrt(error)
 end
 
 """

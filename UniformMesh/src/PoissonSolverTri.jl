@@ -54,6 +54,7 @@ end
 """
   solveandnorm(n)
 Solves the problem for various grid sizes and computes the L2 and H1 norms for convergence purposes.
+Prints a table.
 """
 function solveandnorm()
   println(" ", "="^94)

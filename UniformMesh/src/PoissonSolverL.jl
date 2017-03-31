@@ -130,7 +130,7 @@ function errorL2(c::Array{Float64, 2}, h0::Float64, u::Function)
     c1,c2,c3 = c[:][trimesh.triangles[t,:]]
     uh(x) = x == p1 ? c1 : x == p2 ? c2 : c3
     # integrate the difference of the exact and approximate solutions
-    trierror = trigaussquad(x -> abs(u(x) - uh(p1) * 0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area
+    trierror = trigaussquad(x -> norm(u(x) - uh(p1) * 0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area
                                           - uh(p2) * 0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area
                                           - uh(p3) * 0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area)^2, p1, p2, p3)
 

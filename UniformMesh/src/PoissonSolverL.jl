@@ -52,7 +52,27 @@ function solveanddraw(n::Float64)
 end
 
 """
-  solveandnorm(n)
+  solveandtime()
+Solve and time the problem for various mesh sizes. The mesh sizes specified must have already been
+created using DistMesh in MATLAB.
+"""
+function solveandtime()
+  println(" ", "="^30)
+  println("|", " "^5, "h0", " "^5, "|", " "^7, "Time", " "^5, "|")
+  println(" ", "="^30)
+
+  for h0 in [.4, .2, .1, .05]
+    time = @elapsed c = poissonsolve(h0)
+    print("|", " "^3)
+    @printf("%2.4f", h0)
+    print(" "^3, "|", " "^3)
+    @printf("%6.8f", time)
+    println(" "^3, "|")
+  end
+  println(" ", "="^30)
+end
+"""
+  solveandnorm()
 Solves the problem for various grid sizes and computes the L2 and H1 norms for convergence purposes.
 Prints a table.
 """
@@ -320,7 +340,7 @@ end
 """
   setalldirichlet!(mesh, G, b, g)
 Naively modifies in place the esm, G and the RHS, b for homogeneous Dirichlet BC.
-Se the boundary nodes to the function 'g(x,y)'.
+Set the boundary nodes to the function 'g(x,y)'.
 """
 function setalldirichlet!(mesh::DistMeshTriangleMesh, G::Array{Float64, 2}, b::Array{Float64,2}, g::Function)
   ind = falses(size(G)) # indices to zero out

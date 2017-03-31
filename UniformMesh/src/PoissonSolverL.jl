@@ -11,6 +11,18 @@ export poissonsolve
 export solveanddraw
 export solveandnorm
 
+"""
+ atan2custom(y,x)
+So no discontinuity at pi
+"""
+function atan2custom(y::Array{Float64,1},x::Array{Float64,1})
+  angles = atan2(y,x)
+  angles[angles.<0] += 2pi
+  return angles
+end
+function atan2custom(y::Float64,x::Float64)
+  atan2(y,x) > 0 ? atan2(y,x) : atan2(y,x) + 2pi
+end
 
 """
   poissonsolve(n)
@@ -25,12 +37,7 @@ function poissonsolve(n::Float64)
   b = rhs(mesh, x -> 0.0)
   # set BC
   #setneumann!(mesh,b)
-  function atan2custom(y,x)
-    angles = atan2(y,x)
-    angles[angles.<0] += 2pi
-    return angles
 
-  end
   setalldirichlet!(mesh,G,b,(x,y) -> (x.^2+y.^2).^(1/3).*sin(2/3.*atan2custom(y,x)))
   # compute coeffs
   c = G\b
@@ -65,10 +72,10 @@ created using DistMesh in MATLAB.
 """
 function solveandtime()
   println(" ", "="^30)
-  println("|", " "^5, "h0", " "^5, "|", " "^7, "Time", " "^5, "|")
+  println("|", " "^5, "h0", " "^6, "|", " "^7, "Time", " "^5, "|")
   println(" ", "="^30)
 
-  for h0 in [.4, .2, .1, .05]
+  for h0 in [.4, .2, .1, .05, .025]
     time = @elapsed c = poissonsolve(h0)
     print("|", " "^3)
     @printf("%2.4f", h0)
@@ -85,23 +92,28 @@ Prints a table.
 """
 function solveandnorm()
   println(" ", "="^114)
-  println("|", " "^4, "h0", " "^4, "|", " "^4, "L2error", " "^5, "|", " "^5, "L2Conv",
-          " "^5, "|", " "^5, "H1error", " "^4, "|", " "^5, "H1Conv", " "^5, "|",
-          " "^3, "H1semierror", " "^2, "|", " "^7, "Time", " "^7, "|")
+  println("|", " "^4, "h0", " "^5, "|", " "^4, "L2error", " "^5, "|", " "^5, "L2Conv",
+          " "^5, "|", " "^5, "H1error", " "^4, "|", " "^6, "H1Conv", " "^5, "|",
+          " "^3, "H1semierror", " "^2, "|", " "^7, "Time", " "^5, "|")
   println(" ", "="^114)
   prevL2error = 1.0
   prevH1error = 1.0
-  for h0 in [.4, .2, .1, .05]
+  for h0 in [.4, .2, .1, .05, .025]
     time = @elapsed c = poissonsolve(h0)
-    errL2 = errorL2(c, h0, x -> (x[1].^2+x[2].^2).^(1/3).*sin(2./3.*atan2(x[2],x[1])))
-    errH1 = errorH1(c, h0, x -> [(2.*(x[1]*sin(2./3.*atan2custom(x[2],x[1])) - x[2]*cos(2./3.*atan2custom(x[2],x[1]))))/(3*(x[2]^2 + x[1]^2)^(2/3)),
-                                 (2.*(x[2]*sin(2./3.*atan2custom(x[2],x[1])) - x[1]*cos(2./3.*atan2custom(x[2],x[1]))))/(3*(x[2]^2 + x[1]^2)^(2/3))])
+    function atansign(y::Float64,x::Float64)
+      atan2(y,x) < 0 ? -1 : 1
+    end
+    errL2 = errorL2(c, h0, x -> (x[1].^2+x[2].^2).^(1/3).*sin(2./3.*atan2custom(x[2],x[1])))
+    errH1 = errorH1(c, h0, x -> [(2.0*x[1]*sin(2.0/3.0*atan2custom(x[2],x[1])))./(3*(x[1].^2+x[2].^2).^(2/3))
+                                 - (2*x[2]*(x[1].^2+x[2].^2).^(1/3)*cos(2./3.*atan2custom(x[2],x[1])))./(3*x[1]^2*(x[2]^2/x[1]^2+1)),
+                                 (2.0*x[2]*sin(2.0/3.0*atan2custom(x[2],x[1])))./(3*(x[1].^2+x[2].^2).^(2/3))
+                                 + (2*(x[1].^2+x[2].^2).^(1/3)*cos(2./3.*atan2custom(x[2],x[1])))./(3*x[1]*(x[2]^2/x[1]^2+1))])
     convergenceL2 = log(2, prevL2error/errL2)
     prevL2error = errL2
     convergenceH1 = log(2, prevH1error/sqrt(errL2^2 + errH1^2))
     prevH1error = sqrt(errL2^2 + errH1^2)
     print("|", " "^3)
-    @printf("%2.2f", h0)
+    @printf("%2.3f", h0)
     print(" "^3, "|", " "^3)
     @printf("%6.8f", errL2)
     print(" "^3, "|", " "^3)

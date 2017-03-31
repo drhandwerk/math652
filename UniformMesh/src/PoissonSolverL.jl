@@ -77,24 +77,25 @@ Solves the problem for various grid sizes and computes the L2 and H1 norms for c
 Prints a table.
 """
 function solveandnorm()
-  println(" ", "="^94)
-  println("|", " "^4, "n", " "^4, "|", " "^4, "L2error", " "^5, "|", " "^5, "L2Conv",
+  println(" ", "="^114)
+  println("|", " "^4, "h0", " "^4, "|", " "^4, "L2error", " "^5, "|", " "^5, "L2Conv",
           " "^5, "|", " "^5, "H1error", " "^4, "|", " "^5, "H1Conv", " "^5, "|",
           " "^3, "H1semierror", " "^2, "|", " "^7, "Time", " "^7, "|")
-  println(" ", "="^94)
+  println(" ", "="^114)
   prevL2error = 1.0
   prevH1error = 1.0
   nold = 8
   for h0 in [.4, .2, .1, .05]
     time = @elapsed c = poissonsolve(h0)
-    errL2 = errorL2(c,n)
-    errH1 = errorH1(c,n)
+    errL2 = errorL2(c, h0, x -> (x[1].^2+x[2].^2).^(1/3).*sin(2./3.*atan2(x[2],x[1])))
+    errH1 = errorH1(c, h0, x -> [(2.*(x[1]*sin(2./3.*atan2(x[2],x[1])) - x[2]*cos(2./3.*atan2(x[2],x[1]))))/(3*(x[2]^2 + x[1]^2)^(2/3)),
+                                 (2.*(x[2]*sin(2./3.*atan2(x[2],x[1])) - x[1]*cos(2./3.*atan2(x[2],x[1]))))/(3*(x[2]^2 + x[1]^2)^(2/3))])
     convergenceL2 = log(2, prevL2error/errL2)
     prevL2error = errL2
     convergenceH1 = log(2, prevH1error/sqrt(errL2^2 + errH1^2))
     prevH1error = sqrt(errL2^2 + errH1^2)
     print("|", " "^3)
-    @printf("%3d", n)
+    @printf("%2.2f", h0)
     print(" "^3, "|", " "^3)
     @printf("%6.8f", errL2)
     print(" "^3, "|", " "^3)
@@ -109,15 +110,16 @@ function solveandnorm()
     @printf("%6.8f", time)
     println(" "^3, "|")
   end
-  println(" ", "="^94)
+  println(" ", "="^114)
 end
 
 """
-  errorL2()
-Compute the L2 error between the exact solution and the approximate solution.
+  errorL2(c, h0, u)
+Compute the L2 error between the exact solution 'u' and the approximate solution 'c'.
+The initial edge length 'h0' is from DistMesh in MATLAB.
 """
-function errorL2(c::Array{Float64, 2}, n::Int64)
-  trimesh = UniformTriangleMesh(n,n)
+function errorL2(c::Array{Float64, 2}, h0::Float64, u::Function)
+  trimesh = DistMeshTriangleMesh(h0)
   error = 0.0
   for t = 1:size(trimesh.triangles,1)
     trierror = 0.0
@@ -126,7 +128,6 @@ function errorL2(c::Array{Float64, 2}, n::Int64)
     p3 = trimesh.vertices[trimesh.triangles[t,3],:]
     area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
     c1,c2,c3 = c[:][trimesh.triangles[t,:]]
-    u(x) = sin(pi*x[1])*sin(pi*x[2])
     uh(x) = x == p1 ? c1 : x == p2 ? c2 : c3
     # integrate the difference of the exact and approximate solutions
     trierror = trigaussquad(x -> abs(u(x) - uh(p1) * 0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area
@@ -142,8 +143,8 @@ end
   errorH1()
 Compute the H1 error between the exact solution and the approximate solution.
 """
-function errorH1(c::Array{Float64, 2}, n::Int64)
-  trimesh = UniformTriangleMesh(n,n)
+function errorH1(c::Array{Float64, 2}, h0::Float64, Du::Function)
+  trimesh = DistMeshTriangleMesh(h0)
   error = 0.0
   for t = 1:size(trimesh.triangles,1)
     trierror = 0.0
@@ -152,12 +153,11 @@ function errorH1(c::Array{Float64, 2}, n::Int64)
     p3 = trimesh.vertices[trimesh.triangles[t,3],:]
     area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
     c1,c2,c3 = c[:][trimesh.triangles[t,:]] # approximate solution
-    u(x) = [pi*cos(pi*x[1])*sin(pi*x[2]),pi*sin(pi*x[1])*cos(pi*x[2])]
     uh(x) = x == p1 ? c1 : x == p2 ? c2 : c3
     # integrate the difference of the exact and approximate solution
-    trierror = trigaussquad(x -> norm(u(x) - uh(p1) .* [p2[2]-p3[2],p3[1]-p2[1]]./(2.0*area)
-                                           - uh(p2) .* [p3[2]-p1[2],p1[1]-p3[1]]./(2.0*area)
-                                           - uh(p3) .* [p1[2]-p2[2],p2[1]-p1[1]]./(2.0*area))^2, p1, p2, p3)
+    trierror = trigaussquad(x -> norm(Du(x) - uh(p1) .* [p2[2]-p3[2],p3[1]-p2[1]]./(2.0*area)
+                                            - uh(p2) .* [p3[2]-p1[2],p1[1]-p3[1]]./(2.0*area)
+                                            - uh(p3) .* [p1[2]-p2[2],p2[1]-p1[1]]./(2.0*area))^2, p1, p2, p3)
     error += trierror
   end
   return sqrt(error)

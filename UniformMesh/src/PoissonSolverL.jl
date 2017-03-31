@@ -25,12 +25,19 @@ function poissonsolve(n::Float64)
   b = rhs(mesh, x -> 0.0)
   # set BC
   #setneumann!(mesh,b)
-  setalldirichlet!(mesh,G,b,(x,y) -> (x.^2+y.^2).^(1/3).*sin(2/3.*atan2(y,x)))
+  function atan2custom(y,x)
+    angles = atan2(y,x)
+    angles[angles.<0] += 2pi
+    return angles
+
+  end
+  setalldirichlet!(mesh,G,b,(x,y) -> (x.^2+y.^2).^(1/3).*sin(2/3.*atan2custom(y,x)))
   # compute coeffs
   c = G\b
   # return as matrix
   return c
 end
+
 
 
 """
@@ -43,12 +50,12 @@ function solveanddraw(n::Float64)
   fig = figure()
   ax = fig[:add_subplot](111, projection="3d")
   ax[:plot_trisurf](trimesh.vertices[:,1],trimesh.vertices[:,2], triangles=trimesh.triangles-1, c[:], alpha=1, cmap="viridis", edgecolors="None")
-  ax[:set_title](string("L-Shape"), fontsize=22)
-  ax[:set_xlabel]("X", fontsize=22)
-  ax[:set_ylabel]("Y", fontsize=22)
-  ax[:xaxis][:set_tick_params](labelsize=15)
-  ax[:yaxis][:set_tick_params](labelsize=15)
-  ax[:zaxis][:set_tick_params](labelsize=15)
+  ax[:set_title](string("L-Shape"), fontsize=18)
+  ax[:set_xlabel]("X", fontsize=16)
+  ax[:set_ylabel]("Y", fontsize=16)
+  ax[:xaxis][:set_tick_params](labelsize=8)
+  ax[:yaxis][:set_tick_params](labelsize=8)
+  ax[:zaxis][:set_tick_params](labelsize=8)
 end
 
 """
@@ -84,12 +91,11 @@ function solveandnorm()
   println(" ", "="^114)
   prevL2error = 1.0
   prevH1error = 1.0
-  nold = 8
   for h0 in [.4, .2, .1, .05]
     time = @elapsed c = poissonsolve(h0)
     errL2 = errorL2(c, h0, x -> (x[1].^2+x[2].^2).^(1/3).*sin(2./3.*atan2(x[2],x[1])))
-    errH1 = errorH1(c, h0, x -> [(2.*(x[1]*sin(2./3.*atan2(x[2],x[1])) - x[2]*cos(2./3.*atan2(x[2],x[1]))))/(3*(x[2]^2 + x[1]^2)^(2/3)),
-                                 (2.*(x[2]*sin(2./3.*atan2(x[2],x[1])) - x[1]*cos(2./3.*atan2(x[2],x[1]))))/(3*(x[2]^2 + x[1]^2)^(2/3))])
+    errH1 = errorH1(c, h0, x -> [(2.*(x[1]*sin(2./3.*atan2custom(x[2],x[1])) - x[2]*cos(2./3.*atan2custom(x[2],x[1]))))/(3*(x[2]^2 + x[1]^2)^(2/3)),
+                                 (2.*(x[2]*sin(2./3.*atan2custom(x[2],x[1])) - x[1]*cos(2./3.*atan2custom(x[2],x[1]))))/(3*(x[2]^2 + x[1]^2)^(2/3))])
     convergenceL2 = log(2, prevL2error/errL2)
     prevL2error = errL2
     convergenceH1 = log(2, prevH1error/sqrt(errL2^2 + errH1^2))
@@ -131,8 +137,8 @@ function errorL2(c::Array{Float64, 2}, h0::Float64, u::Function)
     uh(x) = x == p1 ? c1 : x == p2 ? c2 : c3
     # integrate the difference of the exact and approximate solutions
     trierror = trigaussquad(x -> norm(u(x) - uh(p1) * 0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area
-                                          - uh(p2) * 0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area
-                                          - uh(p3) * 0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area)^2, p1, p2, p3)
+                                           - uh(p2) * 0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area
+                                           - uh(p3) * 0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area)^2, p1, p2, p3)
 
     error += trierror
   end

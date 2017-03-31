@@ -22,10 +22,10 @@ function poissonsolve(n::Float64)
   # get global stiffness matrix
   G = gsm(mesh)
   # set RHS from quadrature over elements
-  b = rhs(mesh)
+  b = rhs(mesh, x -> 0.0)
   # set BC
   #setneumann!(mesh,b)
-  setalldirichlet!(mesh,G,b)
+  setalldirichlet!(mesh,G,b,(x,y) -> (x.^2+y.^2).^(1/3).*sin(2/3.*atan2(y,x)))
   # compute coeffs
   c = G\b
   # return as matrix
@@ -60,13 +60,13 @@ function solveandnorm()
   println(" ", "="^94)
   println("|", " "^4, "n", " "^4, "|", " "^4, "L2error", " "^5, "|", " "^5, "L2Conv",
           " "^5, "|", " "^5, "H1error", " "^4, "|", " "^5, "H1Conv", " "^5, "|",
-          " "^3, "H1semierror", " "^2, "|")
+          " "^3, "H1semierror", " "^2, "|", " "^7, "Time", " "^7, "|")
   println(" ", "="^94)
   prevL2error = 1.0
   prevH1error = 1.0
   nold = 8
-  for n in [8, 16, 32, 64]
-    c = poissonsolve(n)
+  for h0 in [.4, .2, .1, .05]
+    time = @elapsed c = poissonsolve(h0)
     errL2 = errorL2(c,n)
     errH1 = errorH1(c,n)
     convergenceL2 = log(2, prevL2error/errL2)
@@ -85,6 +85,8 @@ function solveandnorm()
     @printf("%6.8f", convergenceH1)
     print(" "^3, "|", " "^3)
     @printf("%6.8f", errH1)
+    print(" "^3, "|", " "^3)
+    @printf("%6.8f", time)
     println(" "^3, "|")
   end
   println(" ", "="^94)
@@ -178,9 +180,8 @@ end
   elementrhs()
 Do quadrature over a triangular element for RHS.
 """
-function elementrhs(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
+function elementrhs(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}, f::Function)
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  f(x) = 0.0
   b1 = trigaussquad(x -> f(x) * 0.5 * abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area, p1, p2, p3)
   b2 = trigaussquad(x -> f(x) * 0.5 * abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area, p1, p2, p3)
   b3 = trigaussquad(x -> f(x) * 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area, p1, p2, p3)
@@ -191,12 +192,13 @@ end
   rhs(mesh)
 Assemble the vector b (RHS) by summing over elements.
 """
-function rhs(mesh::DistMeshTriangleMesh)
+function rhs(mesh::DistMeshTriangleMesh, f::Function)
   b = zeros(Float64, size(mesh.vertices,1), 1) # preallocate
   for i = 1:size(mesh.triangles,1)
     elemb = elementrhs(mesh.vertices[mesh.triangles[i,1],:],
                        mesh.vertices[mesh.triangles[i,2],:],
-                       mesh.vertices[mesh.triangles[i,3],:])
+                       mesh.vertices[mesh.triangles[i,3],:],
+                       f)
     b[mesh.triangles[i,:]] += elemb
   end
   return b
@@ -316,18 +318,18 @@ function setdirichlet!(mesh::DistMeshTriangleMesh, G::Array{Float64, 2}, b::Arra
 end
 
 """
-  setalldirichlet!(mesh, G, b)
+  setalldirichlet!(mesh, G, b, g)
 Naively modifies in place the esm, G and the RHS, b for homogeneous Dirichlet BC.
+Se the boundary nodes to the function 'g(x,y)'.
 """
-function setalldirichlet!(mesh::DistMeshTriangleMesh, G::Array{Float64, 2}, b::Array{Float64,2})
+function setalldirichlet!(mesh::DistMeshTriangleMesh, G::Array{Float64, 2}, b::Array{Float64,2}, g::Function)
   ind = falses(size(G)) # indices to zero out
   for i in mesh.boundaryvertices # keep what's on the diagonal
     ind[i,1:i-1] = true
     ind[i,i+1:end] = true
+    G[i,i] = 1.0 # for zero case doesn't matter. for nonzero case don't want to rescale rhs
   end
   G[ind] = 0.0
-  # this is to set the Dirichlet boundary to some function.
-  g(x,y) = sin(pi*x).*cos(pi*y)#(x.^2+y.^2).^(1/3).*sin(2/3.*atan2(y,x))
   bvals = g(mesh.vertices[:,1],mesh.vertices[:,2]);
   b[mesh.boundaryvertices] = bvals[mesh.boundaryvertices]
 end

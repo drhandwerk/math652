@@ -7,6 +7,6 @@ fd = @(p) ddiff(drectangle(p,-1,1,-1,1),drectangle(p,0,1,-1,0));
 e = boundedges(p,t);
 b = union(e(:,1),e(:,2));
 
-save('distmeshdata.mat','p','t','b')
+save(sprintf('distmeshdata%g.mat',h0),'p','t','b')
 end
 

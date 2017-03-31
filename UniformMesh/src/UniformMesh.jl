@@ -72,7 +72,7 @@ type DistMeshTriangleMesh <: UniformPolyMesh
   boundaryvertices::Array{Int64, 2}
 
   function DistMeshTriangleMesh(h::Float64)
-    vars = matread("distmeshdata.mat")
+    vars = matread(@sprintf("distmeshdata%g.mat",h))
     vertices = vars["p"]
     trianglesfloat = vars["t"]
     boundaryverticesfloat = vars["b"]

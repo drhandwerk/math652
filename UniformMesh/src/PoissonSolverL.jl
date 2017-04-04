@@ -104,10 +104,10 @@ function solveandnorm()
       atan2(y,x) < 0 ? -1 : 1
     end
     errL2 = errorL2(c, h0, x -> (x[1].^2+x[2].^2).^(1/3).*sin(2./3.*atan2custom(x[2],x[1])))
-    errH1 = errorH1(c, h0, x -> [(2.0*x[1]*sin(2.0/3.0*atan2custom(x[2],x[1])))./(3*(x[1].^2+x[2].^2).^(2/3))
-                                 - (2*x[2]*(x[1].^2+x[2].^2).^(1/3)*cos(2./3.*atan2custom(x[2],x[1])))./(3*x[1]^2*(x[2]^2/x[1]^2+1)),
-                                 (2.0*x[2]*sin(2.0/3.0*atan2custom(x[2],x[1])))./(3*(x[1].^2+x[2].^2).^(2/3))
-                                 + (2*(x[1].^2+x[2].^2).^(1/3)*cos(2./3.*atan2custom(x[2],x[1])))./(3*x[1]*(x[2]^2/x[1]^2+1))])
+    errH1 = errorH1(c, h0, x -> [(cos(atan2custom(x[2],x[1])).*2./3.*sqrt(x[2].^2+x[1].^2).^(-1./3.).*sin(2./3.*atan2custom(x[2],x[1]))
+                                 - 2./3.*sin(atan2custom(x[2],x[1])).*sqrt(x[2].^2+x[1].^2).^(-1./3.).*cos(2./3.*atan2custom(x[2],x[1]))),
+                                 (sin(atan2custom(x[2],x[1])).*2./3.*sqrt(x[2].^2+x[1].^2).^(-1./3.).*sin(2./3.*atan2custom(x[2],x[1]))
+                                 + 2./3.*cos(atan2custom(x[2],x[1])).*sqrt(x[2].^2+x[1].^2).^(-1./3.).*cos(2./3.*atan2custom(x[2],x[1])))])
     convergenceL2 = log(2, prevL2error/errL2)
     prevL2error = errL2
     convergenceH1 = log(2, prevH1error/sqrt(errL2^2 + errH1^2))

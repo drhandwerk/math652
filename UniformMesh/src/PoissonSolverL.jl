@@ -93,7 +93,7 @@ Prints a table.
 function solveandnorm()
   println(" ", "="^114)
   println("|", " "^4, "h0", " "^5, "|", " "^4, "L2error", " "^5, "|", " "^5, "L2Conv",
-          " "^5, "|", " "^5, "H1error", " "^4, "|", " "^6, "H1Conv", " "^5, "|",
+          " "^5, "|", " "^5, "H1error", " "^4, "|", " "^5, "H1Conv", " "^5, "|",
           " "^3, "H1semierror", " "^2, "|", " "^7, "Time", " "^5, "|")
   println(" ", "="^114)
   prevL2error = 1.0

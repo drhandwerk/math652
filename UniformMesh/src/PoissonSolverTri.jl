@@ -178,11 +178,11 @@ end
   elementrhs()
 Do quadrature over a triangular element for RHS.
 """
-function elementrhs(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
+function elementrhs(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}, f::Function)
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  b1 = trigaussquad(x -> 2*pi^2*sin(pi*x[1])*sin(pi*x[2]) * 0.5 * abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area, p1, p2, p3)
-  b2 = trigaussquad(x -> 2*pi^2*sin(pi*x[1])*sin(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area, p1, p2, p3)
-  b3 = trigaussquad(x -> 2*pi^2*sin(pi*x[1])*sin(pi*x[2]) * 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area, p1, p2, p3)
+  b1 = trigaussquad(x -> f(x) * 0.5 * abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area, p1, p2, p3)
+  b2 = trigaussquad(x -> f(x) * 0.5 * abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area, p1, p2, p3)
+  b3 = trigaussquad(x -> f(x) * 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area, p1, p2, p3)
   return [b1; b2; b3]
 end
 
@@ -190,12 +190,13 @@ end
   rhs(mesh)
 Assemble the vector b (RHS) by summing over elements.
 """
-function rhs(mesh::UniformTriangleMesh)
+function rhs(mesh::DistMeshTriangleMesh, f::Function)
   b = zeros(Float64, size(mesh.vertices,1), 1) # preallocate
   for i = 1:size(mesh.triangles,1)
     elemb = elementrhs(mesh.vertices[mesh.triangles[i,1],:],
                        mesh.vertices[mesh.triangles[i,2],:],
-                       mesh.vertices[mesh.triangles[i,3],:])
+                       mesh.vertices[mesh.triangles[i,3],:],
+                       f)
     b[mesh.triangles[i,:]] += elemb
   end
   return b

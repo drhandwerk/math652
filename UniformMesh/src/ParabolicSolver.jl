@@ -18,7 +18,7 @@ Solves the problem and returns matrix of coeffs.
 """
 function parabolicsolve(n::Int64)
   # set time step
-  kn = 1/n^2
+  kn = .01
   # get mesh
   mesh = UniformTriangleMesh(n,n)
   # get global stiffness matrix
@@ -28,63 +28,55 @@ function parabolicsolve(n::Int64)
   # forcing term
   t = 0.0
   #f(x) = (2pi^2-0.1)*e^(-0.1*t)*sin(pi*x[1])*sin(pi*x[2])
-  # interpolate for u0 (c)
-  cprev = rhs(mesh, x -> sin(pi*x[1])*sin(pi*x[2]))
-  cn = cprev
-  #fn = rhs(mesh, f, 0.0)
-  # set RHS from quadrature over elements
-  #b = B*cprev + kn.*B*fn
+  # Iitial condition
+  cprev = getinitialcondition(mesh,x->sinpi(x[1])*sinpi(x[2]))
   # set LHS matrix
   L = B + kn.*A
-  #setalldirichlet!(mesh,L,b)
-  #cn = L\b
-
   # find discrete L2 norm
   discreteL2err = 0.0
   # do time stepping
-  fig = figure()
-  ax = fig[:add_subplot](111, projection="3d")
-  ax[:plot_trisurf](mesh.vertices[:,1],mesh.vertices[:,2], triangles=mesh.triangles-1, cn[:], alpha=.6, cmap="viridis", edgecolors="None")
-  ax[:set_title](string(n, "x", n), fontsize=22)
-  ax[:set_xlabel]("X", fontsize=22)
-  ax[:set_ylabel]("Y", fontsize=22)
-  ax[:xaxis][:set_tick_params](labelsize=15)
-  ax[:yaxis][:set_tick_params](labelsize=15)
-  ax[:zaxis][:set_tick_params](labelsize=15)
-  while false
+  cn = zeros(Float64,n+1,n+1)
+  for timestep = 1:1/kn
     t = kn*timestep
-    f(x) = (2pi^2-0.1)*e^(-0.1*t)*sin(pi*x[1])*sin(pi*x[2])
+    f(x) = (2*pi^2-0.1)*(e^(-0.1*t).*sin(pi*x[1]).*sin(pi*x[2]))
     # get rhs
-    fn = rhs(mesh, f, t)
-    b = B*cprev + kn*B*fn
+    fn = rhs(mesh, f)
+    b = B*cprev + kn*fn
     # set BC
     setalldirichlet!(mesh,L,b)
-
     # compute coeffs
     cn = L\b
-    ax[:plot_trisurf](mesh.vertices[:,1],mesh.vertices[:,2], triangles=mesh.triangles-1, cn[:], alpha=.6, cmap="viridis", edgecolors="None")
-    fig[:canvas][:draw]()
-    currerr = errorL2(cn,n,t)
+    # update error if needed
+    currerr = errorL2(cn, n, x -> e^(-0.1*t)*sin(pi*x[1])*sin(pi*x[2]))
     if currerr > discreteL2err
       discreteL2err = currerr
     end
     cprev = cn
-    # return as matrix
   end
   return reshape(cn,n+1,n+1), discreteL2err
 end
 
-
+"""
+  getinitialcondition(mesh, f)
+Return the initialcondition of the function at the vertices of the mesh.
+"""
+function getinitialcondition(mesh::UniformTriangleMesh, f::Function)
+  u0 = zeros(Float64,size(mesh.vertices,1),1)
+  for i in 1:size(mesh.vertices,1)
+    u0[i] = f(mesh.vertices[i,:])
+  end
+  return u0
+end
 """
   solveanddraw(n)
 Solves the problem and plots the solution.
 """
 function solveanddraw(n::Int64)
   c, err = parabolicsolve(n)
-  trimesh = UniformTriangleMesh(n,n)
+  mesh = UniformTriangleMesh(n,n)
   fig = figure()
   ax = fig[:add_subplot](111, projection="3d")
-  ax[:plot_trisurf](trimesh.vertices[:,1],trimesh.vertices[:,2], triangles=trimesh.triangles-1, c[:], alpha=1, cmap="viridis", edgecolors="None")
+  ax[:plot_trisurf](mesh.vertices[:,1],mesh.vertices[:,2], triangles=mesh.triangles-1, c[:], alpha=.8, cmap="viridis", edgecolors=:black)
   ax[:set_title](string(n, "x", n), fontsize=22)
   ax[:set_xlabel]("X", fontsize=22)
   ax[:set_ylabel]("Y", fontsize=22)
@@ -94,28 +86,22 @@ function solveanddraw(n::Int64)
   println("Discrete L2 error: ", err)
 end
 
+
 """
   solveandnorm(n)
 Solves the problem for various grid sizes and computes the L2 and H1 norms for convergence purposes.
 Prints a table.
 """
 function solveandnorm()
-  println(" ", "="^94)
+  println(" ", "="^64)
   println("|", " "^4, "n", " "^4, "|", " "^4, "L2error", " "^5, "|", " "^5, "L2Conv",
-          " "^5, "|", " "^5, "H1error", " "^4, "|", " "^5, "H1Conv", " "^5, "|",
-          " "^3, "H1semierror", " "^2, "|")
-  println(" ", "="^94)
+          " "^5, "|", " "^8, "Time", " "^8, "|")
+  println(" ", "="^64)
   prevL2error = 1.0
-  prevH1error = 1.0
-  nold = 8
   for n in [8, 16, 32, 64]
-    c = poissonsolve(n)
-    errL2 = errorL2(c,n)
-    errH1 = errorH1(c,n)
+    time = @elapsed c, errL2 = parabolicsolve(n)
     convergenceL2 = log(2, prevL2error/errL2)
     prevL2error = errL2
-    convergenceH1 = log(2, prevH1error/sqrt(errL2^2 + errH1^2))
-    prevH1error = sqrt(errL2^2 + errH1^2)
     print("|", " "^3)
     @printf("%3d", n)
     print(" "^3, "|", " "^3)
@@ -123,21 +109,17 @@ function solveandnorm()
     print(" "^3, "|", " "^3)
     @printf("%6.8f", convergenceL2)
     print(" "^3, "|", " "^3)
-    @printf("%6.8f", sqrt(errL2^2 + errH1^2))
-    print(" "^3, "|", " "^3)
-    @printf("%6.8f", convergenceH1)
-    print(" "^3, "|", " "^3)
-    @printf("%6.8f", errH1)
+    @printf("%6.8f", time)
     println(" "^3, "|")
   end
-  println(" ", "="^94)
+  println(" ", "="^64)
 end
 
 """
   errorL2()
 Compute the L2 error between the exact solution and the approximate solution.
 """
-function errorL2(c::Array{Float64, 2}, n::Int64, t::Float64)
+function errorL2(c::Array{Float64, 2}, n::Int64, u::Function)
   trimesh = UniformTriangleMesh(n,n)
   error = 0.0
   for t = 1:size(trimesh.triangles,1)
@@ -147,7 +129,6 @@ function errorL2(c::Array{Float64, 2}, n::Int64, t::Float64)
     p3 = trimesh.vertices[trimesh.triangles[t,3],:]
     area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
     c1,c2,c3 = c[:][trimesh.triangles[t,:]]
-    u(x) = e^(-0.1*t)*sin(pi*x[1])*sin(pi*x[2])
     uh(x) = x == p1 ? c1 : x == p2 ? c2 : c3
     # integrate the difference of the exact and approximate solutions
     trierror = trigaussquad(x -> abs(u(x) - uh(p1) * 0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area
@@ -233,7 +214,7 @@ end
   rhs(mesh,f)
 Assemble the vector b (RHS) by summing over elements.
 """
-function rhs(mesh::UniformTriangleMesh, f::Function, t::Float64)
+function rhs(mesh::UniformTriangleMesh, f::Function)
   b = zeros(Float64, size(mesh.vertices,1), 1) # preallocate
   for i = 1:size(mesh.triangles,1)
     elemb = elementrhs(mesh.vertices[mesh.triangles[i,1],:],
@@ -290,23 +271,22 @@ function emmtri(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}
   #φ1 = 0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area
   #φ2 = 0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area
   #φ3 = 0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area
-  #A11 = trigaussquad(x -> (0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area)*(0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area), p1, p2, p3)
-  #A22 = trigaussquad(x -> (0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area)*(0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area), p1, p2, p3)
-  #A33 = trigaussquad(x -> (0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area)*(0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area), p1, p2, p3)
-  #A12 = trigaussquad(x -> (0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area)*(0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area), p1, p2, p3)
-  #A13 = trigaussquad(x -> (0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area)*(0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area), p1, p2, p3)
-  #A23 = trigaussquad(x -> (0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area)*(0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area), p1, p2, p3)
-  A11 = 2*2/factorial(4)*area
-  A12 = 2/factorial(4)*area
-  E = [A11 A12 A12;
-       A12 A11 A12;
-       A12 A12 A11]
+  A11 = trigaussquad(x -> (0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area)*(0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area), p1, p2, p3)
+  A22 = trigaussquad(x -> (0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area)*(0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area), p1, p2, p3)
+  A33 = trigaussquad(x -> (0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area)*(0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area), p1, p2, p3)
+  A12 = trigaussquad(x -> (0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area)*(0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area), p1, p2, p3)
+  A13 = trigaussquad(x -> (0.5* abs(det([x[1] x[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))/area)*(0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area), p1, p2, p3)
+  A23 = trigaussquad(x -> (0.5* abs(det([p1[1] p1[2] 1; x[1] x[2] 1; p3[1] p3[2] 1]))/area)*(0.5* abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; x[1] x[2] 1]))/area), p1, p2, p3)
+  #A11 = 2*2/factorial(4)*area
+  #A12 = 2/factorial(4)*area
+  E = [A11 A12 A13;
+       A12 A22 A23;
+       A13 A23 A33]
 end
 """
 """
 function gmm(mesh::UniformTriangleMesh)
   G = zeros(Float64, size(mesh.vertices,1), size(mesh.vertices,1)) # preallocate
-  #G = SharedArray(Float64, (size(mesh.vertices,1), size(mesh.vertices,1)))
   for i = 1:size(mesh.triangles,1)
     E = emmtri(mesh.vertices[mesh.triangles[i,1],:],
                mesh.vertices[mesh.triangles[i,2],:],

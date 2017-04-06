@@ -190,7 +190,7 @@ end
   rhs(mesh)
 Assemble the vector b (RHS) by summing over elements.
 """
-function rhs(mesh::DistMeshTriangleMesh, f::Function)
+function rhs(mesh::UniformTriangleMesh, f::Function)
   b = zeros(Float64, size(mesh.vertices,1), 1) # preallocate
   for i = 1:size(mesh.triangles,1)
     elemb = elementrhs(mesh.vertices[mesh.triangles[i,1],:],

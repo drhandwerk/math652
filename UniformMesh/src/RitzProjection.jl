@@ -4,27 +4,34 @@ module RitzProjection
 include("UniformMesh.jl")
 
 using UniformMesh
+using PyPlot
 
 """
   function ritzerrors()
 Calculate the ritz errors for finer and finer meshes.
 """
 function ritzerrors()
-  f(x) = sin(pi*x[1]).*sin(pi*x[2])
-  Df(x) = [pi*cos(pi*x[1])*sin(pi*x[2]), pi*sin(pi*x[1])*cos(pi*x[2])]
-  println(" ", "="^26)
-  println("|", " "^4, "n", " "^4, "|", " "^4, "L2error", " "^5, "|")
-  println(" ", "="^26)
-  for n = 8#[8,16,32,64]
+  u(x) = sin(pi*x[1]).*sin(pi*x[2])
+  Du(x) = [pi*cos(pi*x[1])*sin(pi*x[2]), pi*sin(pi*x[1])*cos(pi*x[2])]
+  println(" ", "="^43)
+  println("|", " "^5, "n", " "^3, "|", " "^4, "L2error", " "^5, "|",
+          " "^5, "L2Conv", " "^5, "|")
+  println(" ", "="^43)
+  prevL2error = 1.0
+  for n = [8,16,32,64]
     mesh = UniformTriangleMesh(n,n)
-    errL2 = ritzL2error(mesh, f, Df)
+    errL2 = ritzL2error(mesh, u, Du)
+    convergenceL2 = log(2, prevL2error/errL2)
+    prevL2error = errL2
     print("|", " "^3)
     @printf("%3d", n)
     print(" "^3, "|", " "^3)
     @printf("%6.8f", errL2)
+    print(" "^3, "|", " "^3)
+    @printf("%6.8f", convergenceL2)
     println(" "^3, "|", " "^3)
   end
-  println(" ", "="^26)
+  println(" ", "="^43)
 end
 
 """
@@ -36,7 +43,9 @@ function ritzL2error(mesh::UniformTriangleMesh, f::Function, Df::Function)
   b = ritzrhs(mesh, Df) # load vector
   setalldirichlet!(mesh, B, b)
   c = B\b # ritz projection solution
-  println(c)
+  #fig = figure()
+  #ax = fig[:add_subplot](111, projection="3d")
+  #ax[:plot_trisurf](mesh.vertices[:,1],mesh.vertices[:,2], triangles=mesh.triangles-1, c[:], alpha=.8, cmap="viridis", edgecolors=:black)
   errL2 = errorL2(c, mesh.n, f)
 end
 
@@ -46,9 +55,9 @@ Do quadrature over a triangular element for RHS.
 """
 function elementritzrhs(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}, Df::Function)
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  b1 = trigaussquad(x -> norm(Df(x) .* [(p2[2] - p3[2]), (p3[1] - p2[1])]/(2*area)), p1, p2, p3)
-  b2 = trigaussquad(x -> norm(Df(x) .* [(p3[2] - p1[2]), (p1[1] - p3[1])]/(2*area)), p1, p2, p3)
-  b3 = trigaussquad(x -> norm(Df(x) .* [(p1[2] - p2[2]), (p2[1] - p1[1])]/(2*area)), p1, p2, p3)
+  b1 = trigaussquad(x -> vecdot(Df(x), [(p2[2] - p3[2]), (p3[1] - p2[1])]./(2*area)), p1, p2, p3)
+  b2 = trigaussquad(x -> vecdot(Df(x), [(p3[2] - p1[2]), (p1[1] - p3[1])]./(2*area)), p1, p2, p3)
+  b3 = trigaussquad(x -> vecdot(Df(x), [(p1[2] - p2[2]), (p2[1] - p1[1])]./(2*area)), p1, p2, p3)
   return [b1; b2; b3]
 end
 

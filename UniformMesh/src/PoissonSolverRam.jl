@@ -1,44 +1,33 @@
 __precompile__()
-module PoissonSolverL
+module PoissonSolverRam
 @everywhere push!(LOAD_PATH,"./")
 include("UniformMesh.jl")
 
 using UniformMesh
-using Cubature # for quadrature
+#using Cubature # for quadrature
 using PyPlot
 
 export poissonsolve
 export solveanddraw
 export solveandnorm
 
-"""
- atan2custom(y,x)
-So no discontinuity at pi
-"""
-function atan2custom(y::Array{Float64,1},x::Array{Float64,1})
-  angles = atan2(y,x)
-  angles[angles.<0] += 2pi
-  return angles
-end
-function atan2custom(y::Float64,x::Float64)
-  atan2(y,x) > 0 ? atan2(y,x) : atan2(y,x) + 2pi
-end
 
 """
   poissonsolve(n)
 Solves the problem and returns matrix of coeffs.
 """
-function poissonsolve(n::Float64)
+function poissonsolve()
   # get mesh
-  mesh = DistMeshTriangleMesh(n)
+  mesh = DistMeshTriangleMeshRam()
   # get global stiffness matrix
   G = gsm(mesh)
   # set RHS from quadrature over elements
-  b = rhs(mesh, x -> 0.0)
+  #b = rhs(mesh, x -> -pi^2.*(sin(pi.*x[1]./800).*sin(pi.*x[2]./800))) #pimple
+  b = rhs(mesh, x -> -pi^2.*(sin(pi.*x[1]./160).*sin(pi.*x[2]./160))) #around 160 for period is great!
   # set BC
   #setneumann!(mesh,b)
 
-  setalldirichlet!(mesh,G,b,(x,y) -> (x.^2+y.^2).^(1/3).*sin(2/3.*atan2custom(y,x)))
+  setalldirichlet!(mesh,G,b,(x,y) -> x.*0.0 + y.*0.0)
   # compute coeffs
   c = G\b
   # return as matrix
@@ -52,17 +41,21 @@ end
 Solves the problem and plots the solution.
 """
 function solveanddraw(n::Float64)
-  c = poissonsolve(n)
-  trimesh = DistMeshTriangleMesh(n)
+  c = poissonsolve()
+  c = c./maximum(c)
+  trimesh = DistMeshTriangleMeshRam()
   fig = figure()
   ax = fig[:add_subplot](111, projection="3d")
-  ax[:plot_trisurf](trimesh.vertices[:,1],trimesh.vertices[:,2], triangles=trimesh.triangles-1, c[:], alpha=1, cmap="viridis", edgecolors=:black)
-  ax[:set_title](string("L-Shape with h0: ", n), fontsize=18)
-  ax[:set_xlabel]("X", fontsize=16)
-  ax[:set_ylabel]("Y", fontsize=16)
-  ax[:xaxis][:set_tick_params](labelsize=8)
-  ax[:yaxis][:set_tick_params](labelsize=8)
-  ax[:zaxis][:set_tick_params](labelsize=8)
+  ax[:plot_trisurf](trimesh.vertices[:,1],trimesh.vertices[:,2], triangles=trimesh.triangles-1, c[:], alpha=1, cmap="viridis", edgecolors="None")
+  ax[:grid](false)
+  ax[:set_axis_off]()
+  ax[:view_init](75,90)
+  #ax[:set_title](string("L-Shape with h0: ", n), fontsize=18)
+  #ax[:set_xlabel]("X", fontsize=16)
+  #ax[:set_ylabel]("Y", fontsize=16)
+  #ax[:xaxis][:set_tick_params](labelsize=8)
+  #ax[:yaxis][:set_tick_params](labelsize=8)
+  #ax[:zaxis][:set_tick_params](labelsize=8)
 end
 
 """
@@ -230,7 +223,7 @@ end
   rhs(mesh)
 Assemble the vector b (RHS) by summing over elements.
 """
-function rhs(mesh::DistMeshTriangleMesh, f::Function)
+function rhs(mesh::DistMeshTriangleMeshRam, f::Function)
   b = zeros(Float64, size(mesh.vertices,1), 1) # preallocate
   for i = 1:size(mesh.triangles,1)
     elemb = elementrhs(mesh.vertices[mesh.triangles[i,1],:],
@@ -266,7 +259,7 @@ end
   gsm(mesh)
 Assemble the gsm from all of the element stiffness matrices.
 """
-function gsm(mesh::DistMeshTriangleMesh)
+function gsm(mesh::DistMeshTriangleMeshRam)
   G = zeros(Float64, size(mesh.vertices,1), size(mesh.vertices,1)) # preallocate
   #G = SharedArray(Float64, (size(mesh.vertices,1), size(mesh.vertices,1)))
   for i = 1:size(mesh.triangles,1)
@@ -278,12 +271,12 @@ function gsm(mesh::DistMeshTriangleMesh)
   return G
 end
 
-
+#=
 """
   setneumann!(mesh, G, b)
 Modify b using quadrature on the boundary. Don't actually need to send G in here.
 """
-function setneumann!(mesh::DistMeshTriangleMesh, b::Array{Float64, 2})
+function setneumann!(mesh::DistMeshTriangleMeshRam, b::Array{Float64, 2})
   # get top and bottom elements
   topelements = zeros(Int64, mesh.m)
   bottomelements = zeros(Int64, mesh.m)
@@ -319,12 +312,13 @@ function setneumann!(mesh::DistMeshTriangleMesh, b::Array{Float64, 2})
 
   end
 end
-
+=#
+#=
 """
   setdirichlet!(mesh, G, b)
 Naively modifies in place the esm, G and the RHS, b for homogeneous Dirichlet BC on left and right.
 """
-function setdirichlet!(mesh::DistMeshTriangleMesh, G::Array{Float64, 2}, b::Array{Float64,2})
+function setdirichlet!(mesh::DistMeshTriangleMeshRam, G::Array{Float64, 2}, b::Array{Float64,2})
   # get all boundary vertices
   V = reshape(1:size(mesh.vertices,1), mesh.m+1, mesh.n+1)
   V = flipdim(V,1)
@@ -354,13 +348,13 @@ function setdirichlet!(mesh::DistMeshTriangleMesh, G::Array{Float64, 2}, b::Arra
   b[leftvertices] = 0.0
   b[rightvertices] = 0.0
 end
-
+=#
 """
   setalldirichlet!(mesh, G, b, g)
 Naively modifies in place the esm, G and the RHS, b for homogeneous Dirichlet BC.
 Set the boundary nodes to the function 'g(x,y)'.
 """
-function setalldirichlet!(mesh::DistMeshTriangleMesh, G::Array{Float64, 2}, b::Array{Float64,2}, g::Function)
+function setalldirichlet!(mesh::DistMeshTriangleMeshRam, G::Array{Float64, 2}, b::Array{Float64,2}, g::Function)
   ind = falses(size(G)) # indices to zero out
   for i in mesh.boundaryvertices # keep what's on the diagonal
     ind[i,1:i-1] = true

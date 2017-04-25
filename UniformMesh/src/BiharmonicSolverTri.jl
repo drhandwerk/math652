@@ -129,6 +129,9 @@ function errorH1(c::Array{Float64, 2}, n::Int64)
     p1 = trimesh.vertices[trimesh.triangles[t,1],:]
     p2 = trimesh.vertices[trimesh.triangles[t,2],:]
     p3 = trimesh.vertices[trimesh.triangles[t,3],:]
+    p12 = (p1 + p2)/2
+    p13 = (p1 + p3)/2
+    p23 = (p2 + p3)/2
     area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
     c1,c2,c3 = c[:][trimesh.triangles[t,:]] # approximate solution
     u(x) = [pi*cos(pi*x[1])*sin(pi*x[2]),pi*sin(pi*x[1])*cos(pi*x[2])]
@@ -187,7 +190,7 @@ function elementrhs(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float6
   b4 = trigaussquad(x -> f(x) * φ12(x,p1,p2,p3), p1, p2, p3)
   b5 = trigaussquad(x -> f(x) * φ13(x,p1,p2,p3), p1, p2, p3)
   b6 = trigaussquad(x -> f(x) * φ23(x,p1,p2,p3), p1, p2, p3)
-  return [b1; b2; b3]
+  return [b1; b2; b3]#; b4; b5; b6]
 end
 
 """
@@ -301,7 +304,7 @@ end
 φ13(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}) =
   4*λ1(x,p1,p2,p3)*λ3(x,p1,p2,p3)
 
-φ23(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}) = 
+φ23(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}) =
   4*λ2(x,p1,p2,p3)*λ3(x,p1,p2,p3)
 
 

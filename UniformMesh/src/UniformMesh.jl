@@ -42,6 +42,7 @@ type UniformTriangleMesh <: UniformPolyMesh
   m::Int64 # Number of partitions in x-dir
   n::Int64 # Number of partitions in y-dir
   vertices::Array{Float64, 2}
+  midpoints::Array{Float64, 2}
   triangles::Array{Int64, 2}
   edges::Array{Int64, 2}
 
@@ -49,9 +50,11 @@ type UniformTriangleMesh <: UniformPolyMesh
     mesh = new(m,
                n,
                Array{Float64, 2}((m+1)*(n+1), 2),
+               Array{Float64, 2}((2m+1)*(2n+1) - (m+1)*(n+1), 2),
                Array{Int64, 2}(m*n*2, 3),
                Array{Int64, 2}(3*m*n + n + m, 2))
     generateVertices!(mesh)
+    generateMidpoints!(mesh)
     generateTriangles!(mesh)
     generateEdges!(mesh)
     return mesh
@@ -131,6 +134,36 @@ function generateVertices!(mesh::UniformPolyMesh)
       mesh.vertices[j + (i-1)*(mesh.n+1), 1] = width*(i-1)  # x component
       mesh.vertices[j + (i-1)*(mesh.n+1), 2] = height*(j-1) # y component
     end
+  end
+end
+
+"""
+  generateMidpoints!(mesh)
+
+Creates all of the midpoint nodes for the mesh and changes in place. Numbering starts
+at the bottom left, and goes up each column before going to the bottom of the next
+column.
+"""
+function generateMidpoints!(mesh::UniformPolyMesh)
+  width::Float64 = 1.0/mesh.m
+  height::Float64 = 1.0/mesh.n
+  halfheight::Float64 = height/2.0
+  count::Int64 = 1
+  for i = 1:2*mesh.m+1
+    if mod(i,2) == 1 # if odd only need n edges
+      for j = 1:mesh.n
+        mesh.midpoints[count, 1] = width*(i-1)  # x component
+        mesh.midpoints[count, 2] = halfheight*(2j-1) # y component
+        count += 1
+      end
+    else # if even row need 2n + 1 edges
+      for j = 1:2*mesh.n+1
+        mesh.midpoints[count, 1] = width*(i-1)  # x component
+        mesh.midpoints[count, 2] = halfheight*(j-1) # y component
+        count += 1
+      end
+    end
+
   end
 end
 
@@ -254,6 +287,8 @@ function drawmesh(mesh::UniformPolyMesh)
   end
   # Vertices
   scatter(mesh.vertices[:,1], mesh.vertices[:,2], marker="o", s = 30, color="blue")
+  # midpoints
+  scatter(mesh.midpoints[:,1], mesh.midpoints[:,2], marker="o", s = 30, color="red")
   axis("square")
 end
 

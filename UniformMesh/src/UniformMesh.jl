@@ -54,14 +54,13 @@ type UniformTriangleMesh <: UniformPolyMesh
                Array{Int64, 2}(m*n*2, 3),
                Array{Int64, 2}(3*m*n + n + m, 2))
     generateVertices!(mesh)
-    #generateMidpoints!(mesh)
     generateTriangles!(mesh)
     generateEdges!(mesh)
     return mesh
   end
 end
 
-
+# TODO Make triangle to edges and edges to midpoints for all elements?
 """
   triangletoedges(T)
 Return the three edges as indices for a given triangle element.
@@ -156,37 +155,7 @@ function generateVertices!(mesh::UniformPolyMesh)
     end
   end
 end
-#=
-"""
-  generateMidpoints!(mesh)
 
-Creates all of the midpoint nodes for the mesh and changes in place. Numbering starts
-at the bottom left, and goes up each column before going to the bottom of the next
-column.
-"""
-function generateMidpoints!(mesh::UniformPolyMesh)
-  width::Float64 = 1.0/mesh.m
-  height::Float64 = 1.0/mesh.n
-  halfheight::Float64 = height/2.0
-  count::Int64 = 1
-  for i = 1:2*mesh.m+1
-    if mod(i,2) == 1 # if odd only need n edges
-      for j = 1:mesh.n
-        mesh.midpoints[count, 1] = width*(i-1)  # x component
-        mesh.midpoints[count, 2] = halfheight*(2j-1) # y component
-        count += 1
-      end
-    else # if even row need 2n + 1 edges
-      for j = 1:2*mesh.n+1
-        mesh.midpoints[count, 1] = width*(i-1)  # x component
-        mesh.midpoints[count, 2] = halfheight*(j-1) # y component
-        count += 1
-      end
-    end
-
-  end
-end
-=#
 """
   generateRectangles!(UniformRectMesh)
 

@@ -182,7 +182,8 @@ end
   elementrhs()
 Do quadrature over a triangular element for RHS us P2 basis functions.
 """
-function elementrhs(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}, f::Function)
+function elementrhs(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1},
+                    m1::Array{Float64,1}, m2::Array{Float64,1}, m3::Array{Float64,1}, f::Function)
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
   b1 = trigaussquad(x -> f(x) * φ1(x,p1,p2,p3), p1, p2, p3)
   b2 = trigaussquad(x -> f(x) * φ2(x,p1,p2,p3), p1, p2, p3)
@@ -190,7 +191,7 @@ function elementrhs(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float6
   b4 = trigaussquad(x -> f(x) * φ12(x,p1,p2,p3), p1, p2, p3)
   b5 = trigaussquad(x -> f(x) * φ13(x,p1,p2,p3), p1, p2, p3)
   b6 = trigaussquad(x -> f(x) * φ23(x,p1,p2,p3), p1, p2, p3)
-  return [b1; b2; b3]#; b4; b5; b6]
+  return [b1; b2; b3; b4; b5; b6]
 end
 
 """
@@ -199,12 +200,18 @@ Assemble the vector b (RHS) by summing over elements.
 """
 function rhs(mesh::UniformTriangleMesh, f::Function)
   b = zeros(Float64, size(mesh.vertices,1), 1) # preallocate
+
   for i = 1:size(mesh.triangles,1)
+    midpoints = mesh.edgestomidpoints(mesh.triangletoedges(mesh.triangles[i,:]))
     elemb = elementrhs(mesh.vertices[mesh.triangles[i,1],:],
                        mesh.vertices[mesh.triangles[i,2],:],
                        mesh.vertices[mesh.triangles[i,3],:],
+                       midpoints[1,:],
+                       midpoints[2,:],
+                       midpoints[3,:],
                        f)
-    b[mesh.triangles[i,:]] += elemb
+    b[mesh.triangles[i,:]] += elemb[1:3]
+    b[mesh.edges[i,:]] += elemb[4:6]
   end
   return b
 end
@@ -215,17 +222,22 @@ element stiffness matrix.
 """
 function esmtri(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  E = zeros(Float64, 3, 3)
-  A11 = 1.0/(4.0*area) * ((p2[2] - p3[2])^2 + (p3[1] - p2[1])^2)
-  A22 = 1.0/(4.0*area) * ((p3[2] - p1[2])^2 + (p1[1] - p3[1])^2)
-  A33 = 1.0/(4.0*area) * ((p1[2] - p2[2])^2 + (p2[1] - p1[1])^2)
-  A12 = 1.0/(4.0*area) * ((p2[2] - p3[2])*(p3[2] - p1[2]) + (p3[1] - p2[1])*(p1[1] - p3[1]))
-  A13 = 1.0/(4.0*area) * ((p2[2] - p3[2])*(p1[2] - p2[2]) + (p3[1] - p2[1])*(p2[1] - p1[1]))
-  A23 = 1.0/(4.0*area) * ((p3[2] - p1[2])*(p1[2] - p2[2]) + (p1[1] - p3[1])*(p2[1] - p1[1]))
+  Δφ1 = 4*((p2[1]-p3[1])^2+(p2[2]-p3[2])^2))
+  Δφ2 = 4*((p1[1]-p3[1])^2+(p1[2]-p3[2])^2))
+  Δφ3 = 4*((p1[1]-p2[1])^2+(p1[2]-p2[2])^2))
+  Δφ12 = 8*((p1[1]-p3[1])*(p3[1]-p2[1]) + (p3[2]-p1[2])*(p2[2]-p3[2]))
+  Δφ13 = 8*((p1[1]-p2[1])*(p2[1]-p3[1]) + (p1[2]-p2[2])*(p2[2]-p3[2]))
+  Δφ23 = 8*((p2[1]-p1[1])*(p1[1]-p3[1]) + (p1[2]-p2[2])*(p3[2]-p1[2]))
 
-  E = [A11 A12 A13;
-       A12 A22 A23;
-       A13 A23 A33]
+  E = zeros(Float64, 6, 6)
+
+      # vertices   edges
+  E = [Δφ1*Δφ1  Δφ1*Δφ2  Δφ1*Δφ3  Δφ1*Δφ12  Δφ1*Δφ13  Δφ1*Δφ23;
+       Δφ2*Δφ1  Δφ2*Δφ2  Δφ2*Δφ3  Δφ2*Δφ12  Δφ2*Δφ13  Δφ2*Δφ23; # vertices
+       Δφ3*Δφ1  Δφ3*Δφ2  Δφ3*Δφ3  Δφ3*Δφ12  Δφ3*Δφ13  Δφ3*Δφ23;
+       Δφ12*Δφ1 Δφ12*Δφ2 Δφ12*Δφ3 Δφ12*Δφ12 Δφ12*Δφ13 Δφ12*Δφ23;
+       Δφ13*Δφ1 Δφ13*Δφ2 Δφ13*Δφ3 Δφ13*Δφ12 Δφ13*Δφ13 Δφ13*Δφ23; # edges
+       Δφ23*Δφ1 Δφ23*Δφ2 Δφ23*Δφ3 Δφ23*Δφ12 Δφ23*Δφ13 Δφ23*Δφ23]./(4*area)
 
 end
 
@@ -235,13 +247,15 @@ Assemble the gsm from all of the element stiffness matrices.
 """
 function gsm(mesh::UniformTriangleMesh)
   G = zeros(Float64, size(mesh.vertices,1), size(mesh.vertices,1)) # preallocate
-  #G = SharedArray(Float64, (size(mesh.vertices,1), size(mesh.vertices,1)))
   for i = 1:size(mesh.triangles,1)
     E = esmtri(mesh.vertices[mesh.triangles[i,1],:],
                mesh.vertices[mesh.triangles[i,2],:],
                mesh.vertices[mesh.triangles[i,3],:])
-    G[mesh.triangles[i,:], mesh.triangles[i,:]] += E
+    G[mesh.triangles[i,:], mesh.triangles[i,:]] += E[1:3,1:3]
+    G[mesh.triangles[i,:], mesh.edges[:,i]] += E[1:3,4:6]
+    G[mesh.edges[i,:], mesh.edges[i,:]] += E[4:6,4:6]
   end
+
   return G
 end
 

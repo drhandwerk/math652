@@ -54,11 +54,31 @@ type UniformTriangleMesh <: UniformPolyMesh
                Array{Int64, 2}(m*n*2, 3),
                Array{Int64, 2}(3*m*n + n + m, 2))
     generateVertices!(mesh)
-    generateMidpoints!(mesh)
+    #generateMidpoints!(mesh)
     generateTriangles!(mesh)
     generateEdges!(mesh)
     return mesh
   end
+end
+
+
+"""
+  triangletoedges(T)
+Return the three edges as indices for a given triangle element.
+"""
+function triangletoedges(T::Array{Int64, 1})
+  return [T[1] T[2]; T[2] T[3]; T[3] T[1]]
+end
+
+"""
+  edgestomidpoints(edges)
+Returns the x,y coordinates for the midpoints of three edges.
+"""
+function edgestomidpoints(mesh::UniformTriangleMesh, edges::Array{Int64, 2})
+  return [(mesh.vertices[edges[1,1],:]' + mesh.vertices[edges[1,2],:]')
+          (mesh.vertices[edges[2,1],:]' + mesh.vertices[edges[2,2],:]')
+          (mesh.vertices[edges[3,1],:]' + mesh.vertices[edges[3,2],:]')]./2
+  return
 end
 
 """
@@ -136,7 +156,7 @@ function generateVertices!(mesh::UniformPolyMesh)
     end
   end
 end
-
+#=
 """
   generateMidpoints!(mesh)
 
@@ -166,7 +186,7 @@ function generateMidpoints!(mesh::UniformPolyMesh)
 
   end
 end
-
+=#
 """
   generateRectangles!(UniformRectMesh)
 
@@ -288,7 +308,7 @@ function drawmesh(mesh::UniformPolyMesh)
   # Vertices
   scatter(mesh.vertices[:,1], mesh.vertices[:,2], marker="o", s = 30, color="blue")
   # midpoints
-  scatter(mesh.midpoints[:,1], mesh.midpoints[:,2], marker="o", s = 30, color="red")
+  #scatter(mesh.midpoints[:,1], mesh.midpoints[:,2], marker="o", s = 30, color="red")
   axis("square")
 end
 

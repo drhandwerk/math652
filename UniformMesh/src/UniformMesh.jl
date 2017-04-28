@@ -9,6 +9,7 @@ export UniformRectMesh
 export DistMeshTriangleMesh
 export drawmesh
 export DistMeshTriangleMeshRam
+export edgetoindex
 
 abstract UniformPolyMesh
 
@@ -60,7 +61,7 @@ type UniformTriangleMesh <: UniformPolyMesh
   end
 end
 
-# TODO Make triangle to edges and edges to midpoints for all elements?
+
 """
   triangletoedges(T)
 Return the three edges as indices for a given triangle element.
@@ -259,6 +260,33 @@ function generateEdges!(mesh::UniformTriangleMesh)
       count += 1
     end
   end
+end
+
+
+"""
+"""
+function triangleedgeindices(mesh::UniformTriangleMesh, triangle::Array{Int64, 1})
+  edgestoindex(mesh, triangletoedges(triangle))
+end
+
+"""
+  edgestoindex(mesh,edges)
+Returns the index of the given edge. Edges should be a 3x2 array;
+"""
+function edgestoindex(mesh::UniformTriangleMesh, edges::Array{Int64, 2})
+  index1 = find(all(mesh.edges .== edges[1,:]', 2))
+  index2 = find(all(mesh.edges .== edges[2,:]', 2))
+  index3 = find(all(mesh.edges .== edges[3,:]', 2))
+  if isempty(index1)
+    index1 = find(all(mesh.edges .== reverse(edges[1,:])', 2))
+  end
+  if isempty(index2)
+    index2 = find(all(mesh.edges .== reverse(edges[2,:])', 2))
+  end
+  if isempty(index3)
+    index3 = find(all(mesh.edges .== reverse(edges[3,:])', 2))
+  end
+  return index1, index2, index3
 end
 
 """

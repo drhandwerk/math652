@@ -28,7 +28,7 @@ function solve(n::Int64)
   # compute coeffs
   c = G\b
   # return as matrix
-  return reshape(c,n+1,n+1)
+  return reshape(c,n+1,n+1) #TODO fix return size to include number of edges
 end
 
 
@@ -211,7 +211,7 @@ function rhs(mesh::UniformTriangleMesh, f::Function)
                        midpoints[3,:],
                        f)
     b[mesh.triangles[i,:]] += elemb[1:3]
-    b[mesh.edges[i,:]] += elemb[4:6]
+    b[mesh.edges[i,:]] += elemb[4:6] #TODO fix indexing
   end
   return b
 end
@@ -231,7 +231,7 @@ function esmtri(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}
 
   E = zeros(Float64, 6, 6)
 
-      # vertices   edges
+      #         vertices                      edges
   E = [Δφ1*Δφ1  Δφ1*Δφ2  Δφ1*Δφ3  Δφ1*Δφ12  Δφ1*Δφ13  Δφ1*Δφ23;
        Δφ2*Δφ1  Δφ2*Δφ2  Δφ2*Δφ3  Δφ2*Δφ12  Δφ2*Δφ13  Δφ2*Δφ23; # vertices
        Δφ3*Δφ1  Δφ3*Δφ2  Δφ3*Δφ3  Δφ3*Δφ12  Δφ3*Δφ13  Δφ3*Δφ23;
@@ -253,6 +253,7 @@ function gsm(mesh::UniformTriangleMesh)
                mesh.vertices[mesh.triangles[i,3],:])
     G[mesh.triangles[i,:], mesh.triangles[i,:]] += E[1:3,1:3]
     G[mesh.triangles[i,:], mesh.edges[:,i]] += E[1:3,4:6]
+    G[mesh.edges[i,:], mesh.triangles[i,:]] += E[4:6,1:3] #TODO fix indexing
     G[mesh.edges[i,:], mesh.edges[i,:]] += E[4:6,4:6]
   end
 

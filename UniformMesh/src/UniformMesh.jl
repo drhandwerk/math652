@@ -10,6 +10,9 @@ export DistMeshTriangleMesh
 export drawmesh
 export DistMeshTriangleMeshRam
 export edgetoindex
+export triangleedgeindices
+export edgestomidpoints
+export triangletoedges
 
 abstract UniformPolyMesh
 
@@ -286,7 +289,7 @@ function edgestoindex(mesh::UniformTriangleMesh, edges::Array{Int64, 2})
   if isempty(index3)
     index3 = find(all(mesh.edges .== reverse(edges[3,:])', 2))
   end
-  return index1, index2, index3
+  return [index1[1], index2[1], index3[1]]
 end
 
 """

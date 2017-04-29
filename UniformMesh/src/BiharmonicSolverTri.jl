@@ -19,6 +19,8 @@ Solves the problem and returns matrix of coeffs.
 function solve(n::Int64)
   # get mesh
   mesh = UniformTriangleMesh(n,n)
+  numvertices = size(mesh.vertices,1)
+  numedges = size(mesh.edges,1)
   # get global stiffness matrix
   G = gsm(mesh)
   # set RHS from quadrature over elements
@@ -27,8 +29,9 @@ function solve(n::Int64)
   setalldirichlet!(mesh,G,b)
   # compute coeffs
   c = G\b
+  #return G,b
   # return as matrix
-  return reshape(c,n+1,n+1) #TODO fix return size to include number of edges
+  return c#reshape(c,numvertices+numedges,numvertices+numedges)
 end
 
 
@@ -38,16 +41,23 @@ Solves the problem and plots the solution.
 """
 function solveanddraw(n::Int64)
   c = solve(n)
-  trimesh = UniformTriangleMesh(n,n)
+  mesh = UniformTriangleMesh(n,n)
+  e1 = mesh.edges[:,1]; e2 = mesh.edges[:,2];
+  A = [mesh.vertices[e1] mesh.vertices[e2] c[(n+1)^2+1:end]]
+  B = [mesh.vertices c[1:(n+1)^2]]
+  C = [A;B]
+  surf(C[:,1],C[:,2],C[:,3])
+  #=
   fig = figure()
   ax = fig[:add_subplot](111, projection="3d")
-  ax[:plot_trisurf](trimesh.vertices[:,1],trimesh.vertices[:,2], triangles=trimesh.triangles-1, c[:], alpha=1, cmap="viridis", edgecolors="None")
+  ax[:plot_surface](C[:,1],C[:,2],C[:,3], cmap="viridis", edgecolors=":black")
   ax[:set_title](string(n, "x", n), fontsize=22)
   ax[:set_xlabel]("X", fontsize=22)
   ax[:set_ylabel]("Y", fontsize=22)
   ax[:xaxis][:set_tick_params](labelsize=15)
   ax[:yaxis][:set_tick_params](labelsize=15)
   ax[:zaxis][:set_tick_params](labelsize=15)
+  =#
 end
 
 """
@@ -199,10 +209,12 @@ end
 Assemble the vector b (RHS) by summing over elements.
 """
 function rhs(mesh::UniformTriangleMesh, f::Function)
-  b = zeros(Float64, size(mesh.vertices,1), 1) # preallocate
+  b = zeros(Float64, size(mesh.vertices,1) + size(mesh.edges,1), 1) # preallocate
 
   for i = 1:size(mesh.triangles,1)
-    midpoints = mesh.edgestomidpoints(mesh.triangletoedges(mesh.triangles[i,:]))
+    numvertices = size(mesh.vertices,1)
+    numedges = size(mesh.edges,1)
+    midpoints = edgestomidpoints(mesh, triangletoedges(mesh.triangles[i,:]))
     elemb = elementrhs(mesh.vertices[mesh.triangles[i,1],:],
                        mesh.vertices[mesh.triangles[i,2],:],
                        mesh.vertices[mesh.triangles[i,3],:],
@@ -210,8 +222,11 @@ function rhs(mesh::UniformTriangleMesh, f::Function)
                        midpoints[2,:],
                        midpoints[3,:],
                        f)
-    b[mesh.triangles[i,:]] += elemb[1:3]
-    b[mesh.edges[i,:]] += elemb[4:6] #TODO fix indexing
+    triangleindices = mesh.triangles[i,:]
+    edgeindices = triangleedgeindices(mesh, mesh.triangles[i,:])
+    edgeindices += numvertices # edge numbering starts after vertices
+    b[triangleindices] += elemb[1:3]
+    b[edgeindices] += elemb[4:6]
   end
   return b
 end
@@ -222,9 +237,15 @@ element stiffness matrix.
 """
 function esmtri(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  Δφ1 = 4*((p2[1]-p3[1])^2+(p2[2]-p3[2])^2))
-  Δφ2 = 4*((p1[1]-p3[1])^2+(p1[2]-p3[2])^2))
-  Δφ3 = 4*((p1[1]-p2[1])^2+(p1[2]-p2[2])^2))
+  #=Δφ1 = trigaussquad(x -> f(x) * φ1(x,p1,p2,p3), p1, p2, p3)
+  Δφ2 = trigaussquad(x -> f(x) * φ2(x,p1,p2,p3), p1, p2, p3)
+  Δφ3 = trigaussquad(x -> f(x) * φ3(x,p1,p2,p3), p1, p2, p3)
+  Δφ12 = trigaussquad(x -> f(x) * φ12(x,p1,p2,p3), p1, p2, p3)
+  Δφ13 = trigaussquad(x -> f(x) * φ13(x,p1,p2,p3), p1, p2, p3)
+  Δφ23 = trigaussquad(x -> f(x) * φ23(x,p1,p2,p3), p1, p2, p3)=#
+  Δφ1 = 4*((p2[1]-p3[1])^2+(p2[2]-p3[2])^2)
+  Δφ2 = 4*((p1[1]-p3[1])^2+(p1[2]-p3[2])^2)
+  Δφ3 = 4*((p1[1]-p2[1])^2+(p1[2]-p2[2])^2)
   Δφ12 = 8*((p1[1]-p3[1])*(p3[1]-p2[1]) + (p3[2]-p1[2])*(p2[2]-p3[2]))
   Δφ13 = 8*((p1[1]-p2[1])*(p2[1]-p3[1]) + (p1[2]-p2[2])*(p2[2]-p3[2]))
   Δφ23 = 8*((p2[1]-p1[1])*(p1[1]-p3[1]) + (p1[2]-p2[2])*(p3[2]-p1[2]))
@@ -238,7 +259,6 @@ function esmtri(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}
        Δφ12*Δφ1 Δφ12*Δφ2 Δφ12*Δφ3 Δφ12*Δφ12 Δφ12*Δφ13 Δφ12*Δφ23;
        Δφ13*Δφ1 Δφ13*Δφ2 Δφ13*Δφ3 Δφ13*Δφ12 Δφ13*Δφ13 Δφ13*Δφ23; # edges
        Δφ23*Δφ1 Δφ23*Δφ2 Δφ23*Δφ3 Δφ23*Δφ12 Δφ23*Δφ13 Δφ23*Δφ23]./(4*area)
-
 end
 
 """
@@ -246,15 +266,20 @@ end
 Assemble the gsm from all of the element stiffness matrices.
 """
 function gsm(mesh::UniformTriangleMesh)
-  G = zeros(Float64, size(mesh.vertices,1), size(mesh.vertices,1)) # preallocate
+  numvertices = size(mesh.vertices,1)
+  numedges = size(mesh.edges,1)
+  G = zeros(Float64, numvertices + numedges, numvertices + numedges) # preallocate
   for i = 1:size(mesh.triangles,1)
     E = esmtri(mesh.vertices[mesh.triangles[i,1],:],
                mesh.vertices[mesh.triangles[i,2],:],
                mesh.vertices[mesh.triangles[i,3],:])
-    G[mesh.triangles[i,:], mesh.triangles[i,:]] += E[1:3,1:3]
-    G[mesh.triangles[i,:], mesh.edges[:,i]] += E[1:3,4:6]
-    G[mesh.edges[i,:], mesh.triangles[i,:]] += E[4:6,1:3] #TODO fix indexing
-    G[mesh.edges[i,:], mesh.edges[i,:]] += E[4:6,4:6]
+    triangleindices = mesh.triangles[i,:]
+    edgeindices = triangleedgeindices(mesh, mesh.triangles[i,:])
+    edgeindices += numvertices # edge numbering starts after vertices
+    G[triangleindices, triangleindices] += E[1:3,1:3]
+    G[triangleindices, edgeindices] += E[1:3,4:6]
+    G[edgeindices, triangleindices] += E[4:6,1:3]
+    G[edgeindices, edgeindices] += E[4:6,4:6]
   end
 
   return G
@@ -271,19 +296,31 @@ function setalldirichlet!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Ar
   V = flipdim(V,1) # make the matrix nodes look like picture
   interiorvertices = V[2:end-1, 2:end-1][:] # vector
   exteriorvertices = setdiff(1:size(mesh.vertices,1), interiorvertices)
-
-  ind = trues(size(G)) # indices to zero out
+  ind = trues((mesh.m + 1)^2, (mesh.n + 1)^2) # indices to zero out
   ind[interiorvertices,:] = false # keep interiorvertices rows
   for i in exteriorvertices # keep what's on the diagonal
     ind[i,i] = false
   end
-  G[ind] = 0.0
-  #= this is to set the Dirichlet boundary to some function.
-  X,Y = ndgrid(linspace(0,1,mesh.n+1),linspace(0,1,mesh.m+1))
-  g = X + Y
-  bvals = g[exteriorvertices];
-  =#
+  G[1:(mesh.m + 1)^2,1:(mesh.n + 1)^2][ind] = 0.0 # TODO need to fix this
   b[exteriorvertices] = 0.0 # g(exteriorvertices)
+  setedgesdirichlet!(mesh,G,b,exteriorvertices)
+end
+
+function setedgesdirichlet!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{Float64,2},exteriorvertices::Array{Int64,1})
+  # if both vertices of an edge are in the boundary, then set corresponding row in G,b to zero
+  numvertices = size(mesh.vertices,1)
+  numedges = size(mesh.edges,1)
+  for i = 1:numedges
+    index1 = find(exteriorvertices .== mesh.edges[i,:][1])
+    index2 = find(exteriorvertices .== mesh.edges[i,:][2])
+    if isempty(index1) || isempty(index2)
+      continue
+    else
+      G[i+numvertices,1:i+numvertices-1] = 0.0
+      G[i+numvertices,i+numvertices+1:end] = 0.0
+      b[i+numvertices] = 0.0
+    end
+  end
 end
 
 

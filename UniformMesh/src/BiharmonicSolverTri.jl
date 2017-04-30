@@ -24,9 +24,9 @@ function solve(n::Int64)
   # get global stiffness matrix
   G = gsm(mesh)
   # set RHS from quadrature over elements
-  b = rhs(mesh, x -> 4*pi^4*sin(pi*x[1])*sin(pi*x[2]))
+  b = rhs(mesh, x -> -pi^2.*(sin(pi.*x[1]).*sin(pi.*x[2])))
   # set BC
-  setalldirichlet!(mesh,G,b)
+  #setalldirichlet!(mesh,G,b)
   # compute coeffs
   c = G\b
   #return G,b
@@ -237,28 +237,42 @@ element stiffness matrix.
 """
 function esmtri(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  #=Δφ1 = trigaussquad(x -> f(x) * φ1(x,p1,p2,p3), p1, p2, p3)
-  Δφ2 = trigaussquad(x -> f(x) * φ2(x,p1,p2,p3), p1, p2, p3)
-  Δφ3 = trigaussquad(x -> f(x) * φ3(x,p1,p2,p3), p1, p2, p3)
-  Δφ12 = trigaussquad(x -> f(x) * φ12(x,p1,p2,p3), p1, p2, p3)
-  Δφ13 = trigaussquad(x -> f(x) * φ13(x,p1,p2,p3), p1, p2, p3)
-  Δφ23 = trigaussquad(x -> f(x) * φ23(x,p1,p2,p3), p1, p2, p3)=#
-  Δφ1 = 4*((p2[1]-p3[1])^2+(p2[2]-p3[2])^2)
-  Δφ2 = 4*((p1[1]-p3[1])^2+(p1[2]-p3[2])^2)
-  Δφ3 = 4*((p1[1]-p2[1])^2+(p1[2]-p2[2])^2)
-  Δφ12 = 8*((p1[1]-p3[1])*(p3[1]-p2[1]) + (p3[2]-p1[2])*(p2[2]-p3[2]))
-  Δφ13 = 8*((p1[1]-p2[1])*(p2[1]-p3[1]) + (p1[2]-p2[2])*(p2[2]-p3[2]))
-  Δφ23 = 8*((p2[1]-p1[1])*(p1[1]-p3[1]) + (p1[2]-p2[2])*(p3[2]-p1[2]))
+  E11 = trigaussquad(x -> norm(∇φ1(x,p1,p2,p3) .* ∇φ1(x,p1,p2,p3)), p1, p2, p3)
+  E12 = trigaussquad(x -> norm(∇φ1(x,p1,p2,p3) .* ∇φ2(x,p1,p2,p3)), p1, p2, p3)
+  E13 = trigaussquad(x -> norm(∇φ1(x,p1,p2,p3) .* ∇φ3(x,p1,p2,p3)), p1, p2, p3)
+  E14 = trigaussquad(x -> norm(∇φ1(x,p1,p2,p3) .* ∇φ12(x,p1,p2,p3)), p1, p2, p3)
+  E15 = trigaussquad(x -> norm(∇φ1(x,p1,p2,p3) .* ∇φ13(x,p1,p2,p3)), p1, p2, p3)
+  E16 = trigaussquad(x -> norm(∇φ1(x,p1,p2,p3) .* ∇φ23(x,p1,p2,p3)), p1, p2, p3)
+
+  E22 = trigaussquad(x -> norm(∇φ2(x,p1,p2,p3) .* ∇φ2(x,p1,p2,p3)), p1, p2, p3)
+  E23 = trigaussquad(x -> norm(∇φ2(x,p1,p2,p3) .* ∇φ3(x,p1,p2,p3)), p1, p2, p3)
+  E24 = trigaussquad(x -> norm(∇φ2(x,p1,p2,p3) .* ∇φ12(x,p1,p2,p3)), p1, p2, p3)
+  E25 = trigaussquad(x -> norm(∇φ2(x,p1,p2,p3) .* ∇φ13(x,p1,p2,p3)), p1, p2, p3)
+  E26 = trigaussquad(x -> norm(∇φ2(x,p1,p2,p3) .* ∇φ23(x,p1,p2,p3)), p1, p2, p3)
+
+  E33 = trigaussquad(x -> norm(∇φ3(x,p1,p2,p3) .* ∇φ3(x,p1,p2,p3)), p1, p2, p3)
+  E34 = trigaussquad(x -> norm(∇φ3(x,p1,p2,p3) .* ∇φ12(x,p1,p2,p3)), p1, p2, p3)
+  E35 = trigaussquad(x -> norm(∇φ3(x,p1,p2,p3) .* ∇φ13(x,p1,p2,p3)), p1, p2, p3)
+  E36 = trigaussquad(x -> norm(∇φ3(x,p1,p2,p3) .* ∇φ23(x,p1,p2,p3)), p1, p2, p3)
+
+  E44 = trigaussquad(x -> norm(∇φ12(x,p1,p2,p3) .* ∇φ12(x,p1,p2,p3)), p1, p2, p3)
+  E45 = trigaussquad(x -> norm(∇φ12(x,p1,p2,p3) .* ∇φ13(x,p1,p2,p3)), p1, p2, p3)
+  E46 = trigaussquad(x -> norm(∇φ12(x,p1,p2,p3) .* ∇φ23(x,p1,p2,p3)), p1, p2, p3)
+
+  E55 = trigaussquad(x -> norm(∇φ13(x,p1,p2,p3) .* ∇φ13(x,p1,p2,p3)), p1, p2, p3)
+  E56 = trigaussquad(x -> norm(∇φ13(x,p1,p2,p3) .* ∇φ23(x,p1,p2,p3)), p1, p2, p3)
+
+  E66 = trigaussquad(x -> norm(∇φ23(x,p1,p2,p3) .* ∇φ23(x,p1,p2,p3)), p1, p2, p3)
 
   E = zeros(Float64, 6, 6)
 
       #         vertices                      edges
-  E = [Δφ1*Δφ1  Δφ1*Δφ2  Δφ1*Δφ3  Δφ1*Δφ12  Δφ1*Δφ13  Δφ1*Δφ23;
-       Δφ2*Δφ1  Δφ2*Δφ2  Δφ2*Δφ3  Δφ2*Δφ12  Δφ2*Δφ13  Δφ2*Δφ23; # vertices
-       Δφ3*Δφ1  Δφ3*Δφ2  Δφ3*Δφ3  Δφ3*Δφ12  Δφ3*Δφ13  Δφ3*Δφ23;
-       Δφ12*Δφ1 Δφ12*Δφ2 Δφ12*Δφ3 Δφ12*Δφ12 Δφ12*Δφ13 Δφ12*Δφ23;
-       Δφ13*Δφ1 Δφ13*Δφ2 Δφ13*Δφ3 Δφ13*Δφ12 Δφ13*Δφ13 Δφ13*Δφ23; # edges
-       Δφ23*Δφ1 Δφ23*Δφ2 Δφ23*Δφ3 Δφ23*Δφ12 Δφ23*Δφ13 Δφ23*Δφ23]./(4*area)
+  E = [E11 E12 E13 E14 E15 E16;
+       E12 E22 E23 E24 E25 E26; # vertices
+       E13 E23 E33 E34 E35 E36;
+       E14 E24 E34 E44 E45 E46;
+       E15 E25 E35 E45 E55 E56;
+       E16 E26 E36 E46 E56 E66]#./(4*area)
 end
 
 """
@@ -303,7 +317,7 @@ function setalldirichlet!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Ar
   end
   G[1:(mesh.m + 1)^2,1:(mesh.n + 1)^2][ind] = 0.0 # TODO need to fix this
   b[exteriorvertices] = 0.0 # g(exteriorvertices)
-  setedgesdirichlet!(mesh,G,b,exteriorvertices)
+  #setedgesdirichlet!(mesh,G,b,exteriorvertices)
 end
 
 function setedgesdirichlet!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{Float64,2},exteriorvertices::Array{Int64,1})
@@ -359,6 +373,30 @@ end
 φ23(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}) =
   4*λ2(x,p1,p2,p3)*λ3(x,p1,p2,p3)
 
+# P2 Bais function gradients
+∇φ1(x::Array{Float64,1} ,p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}) =
+  [-(p2[2] - p3[2])*(-4*p2[1]*p3[2] + 4*p2[1]*x[2] + 4*p2[2]*(p3[1] - x[1]) + 4*p3[2]*x[1] - 4*p3[1]*x[2] + 1),
+   -(p3[1] - p2[1])*(-4*p2[1]*p3[2] + 4*p2[1]*x[2] + 4*p2[2]*(p3[1] - x[1]) + 4*p3[2]*x[1] - 4*p3[1]*x[2] + 1)]
+
+∇φ2(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}) =
+ [-(p1[2] - p3[2])*(-4*p1[1]*p3[2] + 4*p1[1]*x[2] + 4*p1[2]*(p3[1] - x[1]) + 4*p3[2]*x[1] - 4*p3[1]*x[2] - 1),
+  -(p1[1] - p3[1])*(4*p1[1]*p3[2] - 4*p1[1]*x[2] + 4*p1[2]*x[1] - 4*p3[1]*p1[2] - 4*p3[2]*x[1] + 4*p3[1]*x[2] + 1)]
+
+∇φ3(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}) =
+[-(p1[2] - p2[2])*(-4*p1[1]*p2[2] + 4*p1[1]*x[2] + 4*p1[2]*(p2[1] - x[1]) - 4*p2[1]*x[2] + 4*p2[2]*x[1] + 1),
+ -(p1[1] - p2[1])*(4*p1[1]*p2[2] - 4*p1[1]*x[2] - 4*p1[2]*p2[1] + 4*p1[2]*x[1] + 4*p2[1]*x[2] - 4*p2[2]*x[1] - 1)]
+
+∇φ12(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}) =
+  [4*(p2[2] - p3[2])*(p1[1]*(x[2] - p3[2]) + p1[2]*(p3[1] - x[1]) - p3[1]*x[2] + p3[2]*x[1]) + 4*(p1[2] - p3[2])*(p2[1]*(x[2] - p3[2]) + p2[2]*(p3[1] - x[1]) - p3[1]*x[2] + p3[2]*x[1]),
+   4*(p3[1] - p2[1])*(p1[1]*(x[2] - p3[2]) + p1[2]*(p3[1] - x[1]) - p3[1]*x[2] + p3[2]*x[1]) + 4*(p1[1] - p3[1])*(p2[1]*(p3[2] - x[2]) + p2[2]*(x[1] - p3[1]) + p3[1]*x[2] - p3[2]*x[1])]
+
+∇φ13(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}) =
+  [4*(p2[2] - p3[2])*(p1[1]*(p2[2] - x[2]) + p1[2]*(x[1] - p2[1]) + p2[1]*x[2] - p2[2]*x[1]) + 4*(p1[2] - p2[2])*(p2[1]*(p3[2] - x[2]) + p2[2]*(x[1] - p3[1]) + p3[1]*x[2] - p3[2]*x[1]),
+   4*(p2[1] - p3[1])*(p1[1]*(x[2] - p2[2]) + p1[2]*(p2[1] - x[1]) - p2[1]*x[2] + p2[2]*x[1]) + 4*(p2[1] - p1[1])*(p2[1]*(p3[2] - x[2]) + p2[2]*(x[1] - p3[1]) + p3[1]*x[2] - p3[2]*x[1])]
+
+∇φ23(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}) =
+  [4*(p1[2] - p3[2])*(p1[1]*(x[2] - p2[2]) + p1[2]*(p2[1] - x[1]) - p2[1]*x[2] + p2[2]*x[1]) + 4*(p1[2] - p2[2])*(p1[1]*(x[2] - p3[2]) + p1[2]*(p3[1] - x[1]) - p3[1]*x[2] + p3[2]*x[1]),
+   4*(p1[1] - p3[1])*(p1[1]*(p2[2] - x[2]) + p1[2]*(x[2] - p2[1]) + p2[1]*x[2] - p2[2]*x[1]) + 4*(p1[1] - p2[1])*(p1[1]*(p3[2] - x[2]) + p1[2]*(x[1] - p3[1]) + p3[1]*x[2] - p3[2]*x[1])]
 
 
 function ndgrid{T}(v1::AbstractArray{T}, v2::AbstractArray{T})

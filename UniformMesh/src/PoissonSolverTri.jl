@@ -22,10 +22,10 @@ function poissonsolve(n::Int64)
   # get global stiffness matrix
   G = gsm(mesh)
   # set RHS from quadrature over elements
-  b = rhs(mesh)
+  b = rhs(mesh, x -> pi^2.*(sin(pi.*x[1]).*sin(pi.*x[2])))
   # set BC
-  setneumann!(mesh,b)
-  setdirichlet!(mesh,G,b)
+  #setneumann!(mesh,b)
+  setalldirichlet!(mesh,G,b)
   # compute coeffs
   c = G\b
   # return as matrix

@@ -22,10 +22,10 @@ function poissonsolve(n::Int64)
   # get global stiffness matrix
   G = gsm(mesh)
   # set RHS from quadrature over elements
-  b = rhs(mesh, x -> pi^2.*(sin(pi.*x[1]).*sin(pi.*x[2])))
+  b = rhs(mesh, x -> 2*pi^2.*(sin(pi.*x[1]).*sin(pi.*x[2])))
   # set BC
-  #setneumann!(mesh,b)
-  setalldirichlet!(mesh,G,b)
+  setneumann!(mesh,b)
+  setdirichlet!(mesh,G,b)
   # compute coeffs
   c = G\b
   # return as matrix
@@ -263,8 +263,8 @@ function setneumann!(mesh::UniformTriangleMesh, b::Array{Float64, 2})
     p2 = mesh.vertices[mesh.triangles[e,2],:]
     p3 = mesh.vertices[mesh.triangles[e,3],:]
     length = sqrt((p2[1]-p3[1])^2 + (p2[2]-p3[2])^2)
-    b1 = lingaussquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/length, p3, p2)
-    b2 = lingaussquad(x -> pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p3[1]-x[1])^2 + (p3[2]-x[2])^2)/length, p3, p2)
+    b1 = lingaussquad(x -> (pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/length), p3, p2)
+    b2 = lingaussquad(x -> (pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p3[1]-x[1])^2 + (p3[2]-x[2])^2)/length), p3, p2)
     b[mesh.triangles[e,:]] += [0.0; b2; b1] #need to add instead of subtract because of how nodes/G are ordered/positioned
 
   end
@@ -273,8 +273,8 @@ function setneumann!(mesh::UniformTriangleMesh, b::Array{Float64, 2})
     p2 = mesh.vertices[mesh.triangles[e,2],:]
     #p3 = mesh.vertices[mesh.triangles[e,3],:]
     length = sqrt((p2[1]-p1[1])^2 + (p2[2]-p1[2])^2)
-    b1 = lingaussquad(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/length, p1, p2)
-    b2 = lingaussquad(x -> -pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p1[1]-x[1])^2 + (p1[2]-x[2])^2)/length, p1, p2)
+    b1 = lingaussquad(x -> (-pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p2[1]-x[1])^2 + (p2[2]-x[2])^2)/length), p1, p2)
+    b2 = lingaussquad(x -> (-pi*sin(pi*x[1])*cos(pi*x[2]) * sqrt((p1[1]-x[1])^2 + (p1[2]-x[2])^2)/length), p1, p2)
     b[mesh.triangles[e,:]] += [b1; b2; 0.0]
 
   end

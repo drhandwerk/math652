@@ -70,7 +70,8 @@ end
 Return the three edges as indices for a given triangle element.
 """
 function triangletoedges(T::Array{Int64, 1})
-  return [T[1] T[2]; T[2] T[3]; T[3] T[1]]
+  #return [T[1] T[2]; T[2] T[3]; T[3] T[1]]
+  return [T[2] T[3]; T[3] T[1]; T[1] T[2]]
 end
 
 """

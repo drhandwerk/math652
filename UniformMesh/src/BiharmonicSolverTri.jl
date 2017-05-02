@@ -24,9 +24,9 @@ function solve(n::Int64)
   # get global stiffness matrix
   G = gsm(mesh)
   # set RHS from quadrature over elements
-  b = rhs(mesh, x -> -pi^2(sin(pi.*x[1])*sin(pi.*x[2])))
+  b = rhs(mesh, x -> 2pi^2(sin(pi.*x[1])*sin(pi.*x[2])))
   # set BC
-  #setalldirichlet!(mesh,G,b)
+  setalldirichlet!(mesh,G,b)
   # compute coeffs
   c = G\b
   #return G,b
@@ -46,7 +46,7 @@ function solveanddraw(n::Int64)
   e1 = mesh.vertices[mesh.edges[:,1],:]
   e2 = mesh.vertices[mesh.edges[:,2],:]
   m = (mesh.vertices[mesh.edges[:,1],:] + mesh.vertices[mesh.edges[:,2],:])./2
-  B = [m[:,1] m[:,2] -c[(n+1)^2+1:end]]
+  B = [m[:,1] m[:,2] c[(n+1)^2+1:end]]
   C = [A;B]
   #surf(A[:,1],A[:,2],c[1:(n+1)^2])
   surf(C[:,1],C[:,2],C[:,3],cmap="viridis",edgecolor="None")
@@ -201,10 +201,10 @@ function elementrhs(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float6
   b1 = trigaussquad(x -> (f(x) * φ1(x,p1,p2,p3)), p1, p2, p3)
   b2 = trigaussquad(x -> (f(x) * φ2(x,p1,p2,p3)), p1, p2, p3)
   b3 = trigaussquad(x -> (f(x) * φ3(x,p1,p2,p3)), p1, p2, p3)
-  b4 = trigaussquad(x -> (f(x) * φ12(x,p1,p2,p3)), p1, p2, p3)
+  b4 = trigaussquad(x -> (f(x) * φ23(x,p1,p2,p3)), p1, p2, p3)
   b5 = trigaussquad(x -> (f(x) * φ13(x,p1,p2,p3)), p1, p2, p3)
-  b6 = trigaussquad(x -> (f(x) * φ23(x,p1,p2,p3)), p1, p2, p3)
-  return [b1; b2; b3; b4; b5; b6]
+  b6 = trigaussquad(x -> (f(x) * φ12(x,p1,p2,p3)), p1, p2, p3)
+  return [b1; b2; b3; b4; b5; b6;]
 end
 
 """
@@ -240,42 +240,42 @@ element stiffness matrix.
 """
 function esmtri(p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  E11 = trigaussquad(x -> vecdot(∇φ1(x,p1,p2,p3) , ∇φ1(x,p1,p2,p3)), p1, p2, p3)
-  E12 = trigaussquad(x -> vecdot(∇φ1(x,p1,p2,p3) , ∇φ2(x,p1,p2,p3)), p1, p2, p3)
-  E13 = trigaussquad(x -> vecdot(∇φ1(x,p1,p2,p3) , ∇φ3(x,p1,p2,p3)), p1, p2, p3)
-  E14 = trigaussquad(x -> vecdot(∇φ1(x,p1,p2,p3) , ∇φ12(x,p1,p2,p3)), p1, p2, p3)
-  E15 = trigaussquad(x -> vecdot(∇φ1(x,p1,p2,p3) , ∇φ13(x,p1,p2,p3)), p1, p2, p3)
-  E16 = trigaussquad(x -> vecdot(∇φ1(x,p1,p2,p3) , ∇φ23(x,p1,p2,p3)), p1, p2, p3)
+  E11 = trigaussquad(x -> dot(∇φ1(x,p1,p2,p3) , ∇φ1(x,p1,p2,p3)), p1, p2, p3)
+  E12 = trigaussquad(x -> dot(∇φ1(x,p1,p2,p3) , ∇φ2(x,p1,p2,p3)), p1, p2, p3)
+  E13 = trigaussquad(x -> dot(∇φ1(x,p1,p2,p3) , ∇φ3(x,p1,p2,p3)), p1, p2, p3)
+  E14 = trigaussquad(x -> dot(∇φ1(x,p1,p2,p3) , ∇φ23(x,p1,p2,p3)), p1, p2, p3)
+  E15 = trigaussquad(x -> dot(∇φ1(x,p1,p2,p3) , ∇φ13(x,p1,p2,p3)), p1, p2, p3)
+  E16 = trigaussquad(x -> dot(∇φ1(x,p1,p2,p3) , ∇φ12(x,p1,p2,p3)), p1, p2, p3)
 
-  E22 = trigaussquad(x -> vecdot(∇φ2(x,p1,p2,p3) , ∇φ2(x,p1,p2,p3)), p1, p2, p3)
-  E23 = trigaussquad(x -> vecdot(∇φ2(x,p1,p2,p3) , ∇φ3(x,p1,p2,p3)), p1, p2, p3)
-  E24 = trigaussquad(x -> vecdot(∇φ2(x,p1,p2,p3) , ∇φ12(x,p1,p2,p3)), p1, p2, p3)
-  E25 = trigaussquad(x -> vecdot(∇φ2(x,p1,p2,p3) , ∇φ13(x,p1,p2,p3)), p1, p2, p3)
-  E26 = trigaussquad(x -> vecdot(∇φ2(x,p1,p2,p3) , ∇φ23(x,p1,p2,p3)), p1, p2, p3)
+  E22 = trigaussquad(x -> dot(∇φ2(x,p1,p2,p3) , ∇φ2(x,p1,p2,p3)), p1, p2, p3)
+  E23 = trigaussquad(x -> dot(∇φ2(x,p1,p2,p3) , ∇φ3(x,p1,p2,p3)), p1, p2, p3)
+  E24 = trigaussquad(x -> dot(∇φ2(x,p1,p2,p3) , ∇φ23(x,p1,p2,p3)), p1, p2, p3)
+  E25 = trigaussquad(x -> dot(∇φ2(x,p1,p2,p3) , ∇φ13(x,p1,p2,p3)), p1, p2, p3)
+  E26 = trigaussquad(x -> dot(∇φ2(x,p1,p2,p3) , ∇φ12(x,p1,p2,p3)), p1, p2, p3)
 
-  E33 = trigaussquad(x -> vecdot(∇φ3(x,p1,p2,p3) , ∇φ3(x,p1,p2,p3)), p1, p2, p3)
-  E34 = trigaussquad(x -> vecdot(∇φ3(x,p1,p2,p3) , ∇φ12(x,p1,p2,p3)), p1, p2, p3)
-  E35 = trigaussquad(x -> vecdot(∇φ3(x,p1,p2,p3) , ∇φ13(x,p1,p2,p3)), p1, p2, p3)
-  E36 = trigaussquad(x -> vecdot(∇φ3(x,p1,p2,p3) , ∇φ23(x,p1,p2,p3)), p1, p2, p3)
+  E33 = trigaussquad(x -> dot(∇φ3(x,p1,p2,p3) , ∇φ3(x,p1,p2,p3)), p1, p2, p3)
+  E34 = trigaussquad(x -> dot(∇φ3(x,p1,p2,p3) , ∇φ23(x,p1,p2,p3)), p1, p2, p3)
+  E35 = trigaussquad(x -> dot(∇φ3(x,p1,p2,p3) , ∇φ13(x,p1,p2,p3)), p1, p2, p3)
+  E36 = trigaussquad(x -> dot(∇φ3(x,p1,p2,p3) , ∇φ12(x,p1,p2,p3)), p1, p2, p3)
 
-  E44 = trigaussquad(x -> vecdot(∇φ12(x,p1,p2,p3) , ∇φ12(x,p1,p2,p3)), p1, p2, p3)
-  E45 = trigaussquad(x -> vecdot(∇φ12(x,p1,p2,p3) , ∇φ13(x,p1,p2,p3)), p1, p2, p3)
-  E46 = trigaussquad(x -> vecdot(∇φ12(x,p1,p2,p3) , ∇φ23(x,p1,p2,p3)), p1, p2, p3)
+  E44 = trigaussquad(x -> dot(∇φ23(x,p1,p2,p3) , ∇φ23(x,p1,p2,p3)), p1, p2, p3)
+  E45 = trigaussquad(x -> dot(∇φ23(x,p1,p2,p3) , ∇φ13(x,p1,p2,p3)), p1, p2, p3)
+  E46 = trigaussquad(x -> dot(∇φ23(x,p1,p2,p3) , ∇φ12(x,p1,p2,p3)), p1, p2, p3)
 
-  E55 = trigaussquad(x -> vecdot(∇φ13(x,p1,p2,p3) , ∇φ13(x,p1,p2,p3)), p1, p2, p3)
-  E56 = trigaussquad(x -> vecdot(∇φ13(x,p1,p2,p3) , ∇φ23(x,p1,p2,p3)), p1, p2, p3)
+  E55 = trigaussquad(x -> dot(∇φ13(x,p1,p2,p3) , ∇φ13(x,p1,p2,p3)), p1, p2, p3)
+  E56 = trigaussquad(x -> dot(∇φ13(x,p1,p2,p3) , ∇φ12(x,p1,p2,p3)), p1, p2, p3)
 
-  E66 = trigaussquad(x -> vecdot(∇φ23(x,p1,p2,p3) , ∇φ23(x,p1,p2,p3)), p1, p2, p3)
+  E66 = trigaussquad(x -> dot(∇φ12(x,p1,p2,p3) , ∇φ12(x,p1,p2,p3)), p1, p2, p3)
 
   E = zeros(Float64, 6, 6)
 
-      #         vertices                      edges
+      #  vertices    edges
   E = [E11 E12 E13 E14 E15 E16;
        E12 E22 E23 E24 E25 E26; # vertices
        E13 E23 E33 E34 E35 E36;
        E14 E24 E34 E44 E45 E46;
-       E15 E25 E35 E45 E55 E56;
-       E16 E26 E36 E46 E56 E66]/(2*area)
+       E15 E25 E35 E45 E55 E56; # edges
+       E16 E26 E36 E46 E56 E66]
 end
 
 """
@@ -357,15 +357,31 @@ function λ3(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3
   0.5 * abs(det([1 p1[1] p1[2]; 1 p2[1] p2[2]; 1 x[1] x[2]]))/area
 end
 
+# Barycentric coords gradients
+function ∇λ1(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
+  area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
+  [(p2[2] - p3[2]),(p3[1] - p2[1])]/(2*area)
+end
+
+function ∇λ2(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
+  area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
+  [(p3[2] - p1[2]),(p1[1]) - p3[1]]/(2*area)
+end
+
+function ∇λ3(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
+  area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
+  [(p1[2] - p2[2]),(p2[1] - p1[1])]/(2*area)
+end
+
 # P2 Basis functions
 φ1(x::Array{Float64,1} ,p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}) =
   λ1(x,p1,p2,p3)*(2*λ1(x,p1,p2,p3) - 1)
 
 φ2(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}) =
-  λ2(x,p1,p2,p3)*(2*λ1(x,p1,p2,p3) - 1)
+  λ2(x,p1,p2,p3)*(2*λ2(x,p1,p2,p3) - 1)
 
 φ3(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}) =
-  λ3(x,p1,p2,p3)*(2*λ1(x,p1,p2,p3) - 1)
+  λ3(x,p1,p2,p3)*(2*λ3(x,p1,p2,p3) - 1)
 
 φ12(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}) =
   4*λ1(x,p1,p2,p3)*λ2(x,p1,p2,p3)
@@ -376,73 +392,73 @@ end
 φ23(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1}) =
   4*λ2(x,p1,p2,p3)*λ3(x,p1,p2,p3)
 
-# P2 Bais function gradients
-#=function ∇φ1(x::Array{Float64,1} ,p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
-  area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  4*λ1(x,p1,p2,p3).*[p2[2] - p3[2], p3[1] - p2[1]]./(2*area) - [p2[2] - p3[2], p3[1] - p2[1]]./(2*area)
+# P2 Basis function gradients
+function ∇φ1(x::Array{Float64,1} ,p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
+  area = 0.5 * det([1 p1[1] p1[2]; 1 p2[1] p2[2]; 1 p3[1] p3[2]])
+  ∇λ1(x,p1,p2,p3)*(4*λ1(x,p1,p2,p3) - 1)
 end
 
 function ∇φ2(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
-  area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  4*λ2(x,p1,p2,p3).*[p3[2] - p1[2], p1[1] - p3[1]]./(2*area) - [p3[2] - p1[2], p1[1] - p3[1]]./(2*area)
+  area = 0.5 * det([1 p1[1] p1[2]; 1 p2[1] p2[2]; 1 p3[1] p3[2]])
+  ∇λ2(x,p1,p2,p3)*(4*λ2(x,p1,p2,p3) - 1)
 end
 
 function ∇φ3(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
-  area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  4*λ3(x,p1,p2,p3).*[p1[2] - p2[2], p2[1] - p1[1]]./(2*area) - [p1[2] - p2[2], p2[1] - p1[1]]./(2*area)
+  area = 0.5 * det([1 p1[1] p1[2]; 1 p2[1] p2[2]; 1 p3[1] p3[2]])
+  ∇λ3(x,p1,p2,p3)*(4*λ3(x,p1,p2,p3) - 1)
 end
 
 function ∇φ12(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
-  area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  λ1(x,p1,p2,p3).*[p3[2] - p1[2], p1[1] - p3[1]]./(2*area) + λ2(x,p1,p2,p3).*[p2[2] - p3[2], p3[1] - p2[1]]./(2*area)
+  area = 0.5 * det([1 p1[1] p1[2]; 1 p2[1] p2[2]; 1 p3[1] p3[2]])
+  4*λ1(x,p1,p2,p3)*∇λ2(x,p1,p2,p3) + 4*λ2(x,p1,p2,p3)*∇λ1(x,p1,p2,p3)
 end
 
 function ∇φ13(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
-  area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  λ1(x,p1,p2,p3).*[p1[2] - p2[2], p2[1] - p1[1]]./(2*area) + λ3(x,p1,p2,p3).*[p2[2] - p3[2], p3[1] - p2[1]]./(2*area)
+  area = 0.5 * det([1 p1[1] p1[2]; 1 p2[1] p2[2]; 1 p3[1] p3[2]])
+  4*λ1(x,p1,p2,p3)*∇λ3(x,p1,p2,p3) + 4*λ3(x,p1,p2,p3)*∇λ1(x,p1,p2,p3)
 end
 
 function ∇φ23(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
-  area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  λ2(x,p1,p2,p3).*[p1[2] - p2[2], p2[1] - p1[1]]./(2*area) + λ3(x,p1,p2,p3).*[p3[2] - p1[2], p1[1] - p3[1]]./(2*area)
+  area = 0.5 * det([1 p1[1] p1[2]; 1 p2[1] p2[2]; 1 p3[1] p3[2]])
+  4*λ2(x,p1,p2,p3)*∇λ3(x,p1,p2,p3) + 4*λ3(x,p1,p2,p3)*∇λ2(x,p1,p2,p3)
 end
-=#
+#=
 function ∇φ1(x::Array{Float64,1} ,p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  -[-(p2[2] - p3[2])*(-4*p2[1]*p3[2] + 4*p2[1]*x[2] + 4*p2[2]*(p3[1] - x[1]) + 4*p3[2]*x[1] - 4*p3[1]*x[2] + 1),
+  [-(p2[2] - p3[2])*(-4*p2[1]*p3[2] + 4*p2[1]*x[2] + 4*p2[2]*(p3[1] - x[1]) + 4*p3[2]*x[1] - 4*p3[1]*x[2] + 1),
    -(p3[1] - p2[1])*(-4*p2[1]*p3[2] + 4*p2[1]*x[2] + 4*p2[2]*(p3[1] - x[1]) + 4*p3[2]*x[1] - 4*p3[1]*x[2] + 1)]./(2*area)
 end
 
 function ∇φ2(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  -[-(p1[2] - p3[2])*(-4*p1[1]*p3[2] + 4*p1[1]*x[2] + 4*p1[2]*(p3[1] - x[1]) + 4*p3[2]*x[1] - 4*p3[1]*x[2] - 1),
+  [-(p1[2] - p3[2])*(-4*p1[1]*p3[2] + 4*p1[1]*x[2] + 4*p1[2]*(p3[1] - x[1]) + 4*p3[2]*x[1] - 4*p3[1]*x[2] - 1),
    -(p1[1] - p3[1])*(4*p1[1]*p3[2] - 4*p1[1]*x[2] + 4*p1[2]*x[1] - 4*p3[1]*p1[2] - 4*p3[2]*x[1] + 4*p3[1]*x[2] + 1)]./(2*area)
  end
 
 function ∇φ3(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  -[-(p1[2] - p2[2])*(-4*p1[1]*p2[2] + 4*p1[1]*x[2] + 4*p1[2]*(p2[1] - x[1]) - 4*p2[1]*x[2] + 4*p2[2]*x[1] + 1),
+  [-(p1[2] - p2[2])*(-4*p1[1]*p2[2] + 4*p1[1]*x[2] + 4*p1[2]*(p2[1] - x[1]) - 4*p2[1]*x[2] + 4*p2[2]*x[1] + 1),
   -(p1[1] - p2[1])*(4*p1[1]*p2[2] - 4*p1[1]*x[2] - 4*p1[2]*p2[1] + 4*p1[2]*x[1] + 4*p2[1]*x[2] - 4*p2[2]*x[1] - 1)]./(2*area)
 end
 
 function ∇φ12(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  -[4*(p2[2] - p3[2])*(p1[1]*(x[2] - p3[2]) + p1[2]*(p3[1] - x[1]) - p3[1]*x[2] + p3[2]*x[1]) + 4*(p1[2] - p3[2])*(p2[1]*(x[2] - p3[2]) + p2[2]*(p3[1] - x[1]) - p3[1]*x[2] + p3[2]*x[1]),
+  [4*(p2[2] - p3[2])*(p1[1]*(x[2] - p3[2]) + p1[2]*(p3[1] - x[1]) - p3[1]*x[2] + p3[2]*x[1]) + 4*(p1[2] - p3[2])*(p2[1]*(x[2] - p3[2]) + p2[2]*(p3[1] - x[1]) - p3[1]*x[2] + p3[2]*x[1]),
    4*(p3[1] - p2[1])*(p1[1]*(x[2] - p3[2]) + p1[2]*(p3[1] - x[1]) - p3[1]*x[2] + p3[2]*x[1]) + 4*(p1[1] - p3[1])*(p2[1]*(p3[2] - x[2]) + p2[2]*(x[1] - p3[1]) + p3[1]*x[2] - p3[2]*x[1])]./(2*area)
  end
 
 function ∇φ13(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  -[4*(p2[2] - p3[2])*(p1[1]*(p2[2] - x[2]) + p1[2]*(x[1] - p2[1]) + p2[1]*x[2] - p2[2]*x[1]) + 4*(p1[2] - p2[2])*(p2[1]*(p3[2] - x[2]) + p2[2]*(x[1] - p3[1]) + p3[1]*x[2] - p3[2]*x[1]),
+  [4*(p2[2] - p3[2])*(p1[1]*(p2[2] - x[2]) + p1[2]*(x[1] - p2[1]) + p2[1]*x[2] - p2[2]*x[1]) + 4*(p1[2] - p2[2])*(p2[1]*(p3[2] - x[2]) + p2[2]*(x[1] - p3[1]) + p3[1]*x[2] - p3[2]*x[1]),
    4*(p2[1] - p3[1])*(p1[1]*(x[2] - p2[2]) + p1[2]*(p2[1] - x[1]) - p2[1]*x[2] + p2[2]*x[1]) + 4*(p2[1] - p1[1])*(p2[1]*(p3[2] - x[2]) + p2[2]*(x[1] - p3[1]) + p3[1]*x[2] - p3[2]*x[1])]./(2*area)
  end
 
 function ∇φ23(x::Array{Float64,1}, p1::Array{Float64,1}, p2::Array{Float64,1}, p3::Array{Float64,1})
   area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-  -[4*(p1[2] - p3[2])*(p1[1]*(x[2] - p2[2]) + p1[2]*(p2[1] - x[1]) - p2[1]*x[2] + p2[2]*x[1]) + 4*(p1[2] - p2[2])*(p1[1]*(x[2] - p3[2]) + p1[2]*(p3[1] - x[1]) - p3[1]*x[2] + p3[2]*x[1]),
+  [4*(p1[2] - p3[2])*(p1[1]*(x[2] - p2[2]) + p1[2]*(p2[1] - x[1]) - p2[1]*x[2] + p2[2]*x[1]) + 4*(p1[2] - p2[2])*(p1[1]*(x[2] - p3[2]) + p1[2]*(p3[1] - x[1]) - p3[1]*x[2] + p3[2]*x[1]),
    4*(p1[1] - p3[1])*(p1[1]*(p2[2] - x[2]) + p1[2]*(x[2] - p2[1]) + p2[1]*x[2] - p2[2]*x[1]) + 4*(p1[1] - p2[1])*(p1[1]*(p3[2] - x[2]) + p1[2]*(x[1] - p3[1]) + p3[1]*x[2] - p3[2]*x[1])]./(2*area)
  end
-
+=#
 
 function ndgrid{T}(v1::AbstractArray{T}, v2::AbstractArray{T})
     m, n = length(v1), length(v2)

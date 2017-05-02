@@ -49,6 +49,7 @@ function solveanddraw(n::Int64)
   B = [m[:,1] m[:,2] c[(n+1)^2+1:end]]
   C = [A;B]
   #surf(A[:,1],A[:,2],c[1:(n+1)^2])
+  figure()
   surf(C[:,1],C[:,2],C[:,3],cmap="viridis",edgecolor="None")
   #=
   fig = figure()
@@ -115,7 +116,6 @@ function errorL2(c::Array{Float64, 2}, n::Int64)
     p1 = mesh.vertices[mesh.triangles[t,1],:]
     p2 = mesh.vertices[mesh.triangles[t,2],:]
     p3 = mesh.vertices[mesh.triangles[t,3],:]
-    area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
     u(x) = sin(pi*x[1])*sin(pi*x[2])
     function uh()
       numvertices = size(mesh.vertices,1)
@@ -317,11 +317,12 @@ end
 Naively modifies in place the esm, G and the RHS, b for homogeneous Dirichlet BC.
 """
 function setalldirichlet!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Array{Float64,2})
+  numvertices = size(mesh.vertices,1)
   # get boundary vertices
-  V = reshape(1:size(mesh.vertices,1), mesh.m+1, mesh.n+1)
+  V = reshape(1:numvertices, mesh.m+1, mesh.n+1)
   V = flipdim(V,1) # make the matrix nodes look like picture
   interiorvertices = V[2:end-1, 2:end-1][:] # vector
-  exteriorvertices = setdiff(1:size(mesh.vertices,1), interiorvertices)
+  exteriorvertices = setdiff(1:numvertices, interiorvertices)
   ind = trues((mesh.m + 1)^2, (mesh.n + 1)^2) # indices to zero out
   ind[interiorvertices,:] = false # keep interiorvertices rows
   for i in exteriorvertices # keep what's on the diagonal
@@ -330,6 +331,7 @@ function setalldirichlet!(mesh::UniformTriangleMesh, G::Array{Float64, 2}, b::Ar
   B = G[1:(mesh.m + 1)^2,1:(mesh.n + 1)^2]
   B[ind] = 0.0
   G[1:(mesh.m + 1)^2,1:(mesh.n + 1)^2] = B
+  B = G[exteriorvertices,numvertices+1:end] = 0.0
   b[exteriorvertices] = 0.0 # g(exteriorvertices)
   setedgesdirichlet!(mesh,G,b,exteriorvertices)
 end

@@ -24,14 +24,12 @@ function solve(n::Int64)
   # get global stiffness matrix
   G = gsm(mesh)
   # set RHS from quadrature over elements
-  b = rhs(mesh, x -> 2pi^2(sin(pi.*x[1])*sin(pi.*x[2])))
+  b = rhs(mesh, x -> 2*pi^2.*(sin(pi.*x[1]).*sin(pi.*x[2])))
   # set BC
   setalldirichlet!(mesh,G,b)
   # compute coeffs
   c = G\b
-  #return G,b
-  # return as matrix
-  return c#reshape(c,numvertices+numedges,numvertices+numedges)
+  return c
 end
 
 
@@ -49,19 +47,19 @@ function solveanddraw(n::Int64)
   B = [m[:,1] m[:,2] c[(n+1)^2+1:end]]
   C = [A;B]
   #surf(A[:,1],A[:,2],c[1:(n+1)^2])
-  figure()
-  surf(C[:,1],C[:,2],C[:,3],cmap="viridis",edgecolor="None")
-  #=
+  #figure()
+  #surf(C[:,1],C[:,2],C[:,3],cmap="viridis",edgecolor="None")
+
   fig = figure()
   ax = fig[:add_subplot](111, projection="3d")
-  ax[:plot_surface](C[:,1],C[:,2],C[:,3], cmap="viridis", edgecolors=":black")
+  ax[:plot_trisurf](C[:,1],C[:,2],C[:,3], cmap="jet", edgecolors="black")
   ax[:set_title](string(n, "x", n), fontsize=22)
   ax[:set_xlabel]("X", fontsize=22)
   ax[:set_ylabel]("Y", fontsize=22)
   ax[:xaxis][:set_tick_params](labelsize=15)
   ax[:yaxis][:set_tick_params](labelsize=15)
   ax[:zaxis][:set_tick_params](labelsize=15)
-  =#
+
 end
 
 """
@@ -81,11 +79,11 @@ function solveandnorm()
   for n in [2, 4, 8, 16, 32]
     c = solve(n)
     errL2 = errorL2(c,n)
-    #errH1 = errorH1(c,n)
+    errH1 = errorH1(c,n)
     convergenceL2 = log(2, prevL2error/errL2)
     prevL2error = errL2
-    #convergenceH1 = log(2, prevH1error/sqrt(errL2^2 + errH1^2))
-    #prevH1error = sqrt(errL2^2 + errH1^2)
+    convergenceH1 = log(2, prevH1error/sqrt(errL2^2 + errH1^2))
+    prevH1error = sqrt(errL2^2 + errH1^2)
     print("|", " "^3)
     @printf("%3d", n)
     print(" "^3, "|", " "^3)
@@ -93,11 +91,11 @@ function solveandnorm()
     print(" "^3, "|", " "^3)
     @printf("%6.8f", convergenceL2)
     print(" "^3, "|", " "^3)
-    #@printf("%6.8f", sqrt(errL2^2 + errH1^2))
+    @printf("%6.8f", sqrt(errL2^2 + errH1^2))
     print(" "^3, "|", " "^3)
-    #@printf("%6.8f", convergenceH1)
+    @printf("%6.8f", convergenceH1)
     print(" "^3, "|", " "^3)
-    #@printf("%6.8f", errH1)
+    @printf("%6.8f", errH1)
     println(" "^3, "|")
   end
   println(" ", "="^94)
@@ -116,13 +114,13 @@ function errorL2(c::Array{Float64, 2}, n::Int64)
     p1 = mesh.vertices[mesh.triangles[t,1],:]
     p2 = mesh.vertices[mesh.triangles[t,2],:]
     p3 = mesh.vertices[mesh.triangles[t,3],:]
+    numvertices = size(mesh.vertices,1)
+    edgeindices = triangleedgeindices(mesh, mesh.triangles[t,:])
+    edgeindices += numvertices # edge numbering starts after vertices
     u(x) = sin(pi*x[1])*sin(pi*x[2])
     function uh()
-      numvertices = size(mesh.vertices,1)
-      edgeindices = triangleedgeindices(mesh, mesh.triangles[t,:])
-      edgeindices += numvertices # edge numbering starts after vertices
-      c1,c2,c3 = c[:][mesh.triangles[t,:]]
-      c4,c5,c6 = c[:][edgeindices]
+      c1,c2,c3 = c[mesh.triangles[t,:]]
+      c4,c5,c6 = c[edgeindices]
       return [c1,c2,c3,c4,c5,c6]
     end
     # integrate the difference of the exact and approximate solutions
@@ -151,17 +149,22 @@ function errorH1(c::Array{Float64, 2}, n::Int64)
     p1 = mesh.vertices[mesh.triangles[t,1],:]
     p2 = mesh.vertices[mesh.triangles[t,2],:]
     p3 = mesh.vertices[mesh.triangles[t,3],:]
-    p12 = (p1 + p2)/2
-    p13 = (p1 + p3)/2
-    p23 = (p2 + p3)/2
-    area = 0.5 * abs(det([p1[1] p1[2] 1; p2[1] p2[2] 1; p3[1] p3[2] 1]))
-    c1,c2,c3 = c[:][mesh.triangles[t,:]] # approximate solution
+    numvertices = size(mesh.vertices,1)
+    edgeindices = triangleedgeindices(mesh, mesh.triangles[t,:])
+    edgeindices += numvertices # edge numbering starts after vertices
     u(x) = [pi*cos(pi*x[1])*sin(pi*x[2]),pi*sin(pi*x[1])*cos(pi*x[2])]
-    uh(x) = x == p1 ? c1 : x == p2 ? c2 : c3
+    function uh()
+      c1,c2,c3 = c[mesh.triangles[t,:]]
+      c4,c5,c6 = c[edgeindices]
+      return [c1,c2,c3,c4,c5,c6]
+    end
     # integrate the difference of the exact and approximate solution
-    trierror = trigaussquad(x -> norm(u(x) - uh(p1) .* [p2[2]-p3[2],p3[1]-p2[1]]./(2.0*area)
-                                           - uh(p2) .* [p3[2]-p1[2],p1[1]-p3[1]]./(2.0*area)
-                                           - uh(p3) .* [p1[2]-p2[2],p2[1]-p1[1]]./(2.0*area))^2, p1, p2, p3)
+    trierror = trigaussquad(x -> norm(u(x) - uh()[1] .* ∇φ1(x,p1,p2,p3)
+                                           - uh()[2] .* ∇φ2(x,p1,p2,p3)
+                                           - uh()[3] .* ∇φ3(x,p1,p2,p3)
+                                           - uh()[4] .* ∇φ23(x,p1,p2,p3)
+                                           - uh()[5] .* ∇φ13(x,p1,p2,p3)
+                                           - uh()[6] .* ∇φ12(x,p1,p2,p3))^2, p1, p2, p3)
     error += trierror
   end
   return sqrt(error)
